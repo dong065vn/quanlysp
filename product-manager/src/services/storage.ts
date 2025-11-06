@@ -1,11 +1,21 @@
 import type { Product, Category } from '../types/product';
+import { googleAuthService } from './googleAuth';
+import { syncService } from './syncService';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'products',
   CATEGORIES: 'categories',
+  DRIVE_SYNC_ENABLED: 'driveSyncEnabled',
 };
 
 class StorageService {
+  private autoSyncEnabled = false;
+
+  constructor() {
+    // Load sync preference
+    this.autoSyncEnabled = localStorage.getItem(STORAGE_KEYS.DRIVE_SYNC_ENABLED) === 'true';
+  }
+
   // Products
   getProducts(): Product[] {
     try {
@@ -20,6 +30,13 @@ class StorageService {
   saveProducts(products: Product[]): void {
     try {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+
+      // Auto-sync to cloud if enabled
+      if (this.autoSyncEnabled && googleAuthService.isAuthenticated()) {
+        syncService.syncToCloud(products).catch(error => {
+          console.error('Auto-sync to cloud failed:', error);
+        });
+      }
     } catch (error) {
       console.error('Error saving products:', error);
     }
@@ -111,6 +128,21 @@ class StorageService {
   clearAll(): void {
     localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
+  }
+
+  // Google Drive Sync Settings
+  enableDriveSync(): void {
+    this.autoSyncEnabled = true;
+    localStorage.setItem(STORAGE_KEYS.DRIVE_SYNC_ENABLED, 'true');
+  }
+
+  disableDriveSync(): void {
+    this.autoSyncEnabled = false;
+    localStorage.setItem(STORAGE_KEYS.DRIVE_SYNC_ENABLED, 'false');
+  }
+
+  isDriveSyncEnabled(): boolean {
+    return this.autoSyncEnabled;
   }
 
   // Initialize with sample data

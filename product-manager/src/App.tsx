@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Download, Upload, Search, Settings } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
+import { GoogleDriveConnect } from './components/GoogleDriveConnect';
+import { SyncStatusIndicator } from './components/SyncStatusIndicator';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
 import * as XLSX from 'xlsx';
@@ -13,11 +15,25 @@ function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDriveSettings, setShowDriveSettings] = useState(false);
 
   // Load products on mount
   useEffect(() => {
     storageService.initializeSampleData();
     loadProducts();
+
+    // Listen for product updates from sync
+    const handleProductsUpdate = (event: CustomEvent) => {
+      if (event.detail?.products) {
+        setProducts(event.detail.products);
+      }
+    };
+
+    window.addEventListener('products-updated', handleProductsUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('products-updated', handleProductsUpdate as EventListener);
+    };
   }, []);
 
   // Apply filters and search
@@ -44,6 +60,11 @@ function App() {
   const loadProducts = () => {
     const loadedProducts = storageService.getProducts();
     setProducts(loadedProducts);
+  };
+
+  const handleSyncComplete = () => {
+    // Reload products after sync
+    loadProducts();
   };
 
   const handleSaveProduct = (product: Product) => {
@@ -149,10 +170,15 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Sync Status Indicator */}
+            <SyncStatusIndicator />
+
+            {/* Google Drive Settings Toggle */}
             <button
+              onClick={() => setShowDriveSettings(!showDriveSettings)}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              title="Cài đặt"
+              title="Google Drive Settings"
             >
               <Settings size={20} className="text-gray-600" />
             </button>
@@ -225,6 +251,29 @@ function App() {
             </select>
           </div>
         </div>
+
+        {/* Google Drive Settings Panel */}
+        {showDriveSettings && (
+          <div className="px-4 py-3 bg-blue-50 border-t border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-gray-800 mb-1">
+                  Google Drive Sync
+                </h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Kết nối với Google Drive để tự động đồng bộ dữ liệu của bạn trên cloud
+                </p>
+                <GoogleDriveConnect onSyncComplete={handleSyncComplete} />
+              </div>
+              <button
+                onClick={() => setShowDriveSettings(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content - Full Width Spreadsheet */}
