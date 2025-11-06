@@ -3,6 +3,7 @@ import { Cloud, CloudOff, RefreshCw, Check, X, AlertCircle } from 'lucide-react'
 import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
+import { GoogleDrivePermissionsModal } from './GoogleDrivePermissionsModal';
 
 interface GoogleDriveConnectProps {
   onSyncComplete?: () => void;
@@ -16,6 +17,7 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [user, setUser] = useState<{ name: string; email: string; picture?: string } | null>(null);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   useEffect(() => {
     // Initialize Google API
@@ -87,6 +89,10 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
     };
   }, [onSyncComplete]);
 
+  const handleConnectClick = () => {
+    setShowPermissionsModal(true);
+  };
+
   const handleConnect = async () => {
     setIsLoading(true);
     setErrorMessage('');
@@ -95,6 +101,7 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
       await googleAuthService.requestAccessToken();
       setIsConnected(true);
       setUser(googleAuthService.getCurrentUser());
+      setShowPermissionsModal(false);
     } catch (error) {
       console.error('Failed to connect to Google Drive:', error);
       setErrorMessage('Failed to connect. Please try again.');
@@ -149,28 +156,38 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
 
   if (!isConnected) {
     return (
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleConnect}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <RefreshCw size={18} className="animate-spin text-blue-600" />
-          ) : (
-            <Cloud size={18} className="text-gray-600" />
+      <>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleConnectClick}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <RefreshCw size={18} className="animate-spin text-blue-600" />
+            ) : (
+              <Cloud size={18} className="text-gray-600" />
+            )}
+            <span className="text-sm font-medium text-gray-700">
+              {isLoading ? 'Đang kết nối...' : 'Kết nối Google Drive'}
+            </span>
+          </button>
+          {errorMessage && (
+            <div className="flex items-center gap-1 text-red-600 text-sm">
+              <AlertCircle size={16} />
+              <span>{errorMessage}</span>
+            </div>
           )}
-          <span className="text-sm font-medium text-gray-700">
-            {isLoading ? 'Đang kết nối...' : 'Kết nối Google Drive'}
-          </span>
-        </button>
-        {errorMessage && (
-          <div className="flex items-center gap-1 text-red-600 text-sm">
-            <AlertCircle size={16} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-      </div>
+        </div>
+
+        {/* Permissions Modal */}
+        <GoogleDrivePermissionsModal
+          isOpen={showPermissionsModal}
+          onClose={() => setShowPermissionsModal(false)}
+          onConfirm={handleConnect}
+          isLoading={isLoading}
+        />
+      </>
     );
   }
 
