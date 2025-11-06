@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Package } from 'lucide-react';
+import { Eye, Pencil, Trash2, Package, ExternalLink } from 'lucide-react';
 import type { Product, ProductStatus } from '../types/product';
 
 interface ProductTableProps {
@@ -141,6 +141,40 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         header: 'Trạng thái',
         cell: (info) => <StatusBadge status={info.getValue()} />,
         size: 140,
+      }),
+      columnHelper.accessor('links', {
+        header: 'Links',
+        cell: (info) => {
+          const links = info.getValue();
+          if (!links || links.length === 0) {
+            return <span className="text-gray-400 text-xs">-</span>;
+          }
+          return (
+            <div className="flex gap-1 flex-wrap">
+              {links.slice(0, 3).map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100 transition-colors"
+                  title={link.label}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink size={12} />
+                  {link.type === 'marketplace' && '🛒'}
+                  {link.type === 'affiliate' && '💰'}
+                  {link.type === 'social' && '📱'}
+                  {link.type === 'internal' && '🔗'}
+                </a>
+              ))}
+              {links.length > 3 && (
+                <span className="text-xs text-gray-500">+{links.length - 3}</span>
+              )}
+            </div>
+          );
+        },
+        size: 150,
       }),
       columnHelper.accessor('updatedAt', {
         header: 'Cập nhật',
