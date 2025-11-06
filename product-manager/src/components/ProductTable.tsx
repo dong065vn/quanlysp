@@ -198,16 +198,16 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
   });
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+    <div className="w-full h-full">
+      <div className="overflow-auto h-full">
+        <table className="w-full border-collapse">
+          <thead className="bg-gray-50 sticky top-0 z-10 border-b-2 border-gray-300">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                    className="px-4 py-2 text-left text-xs font-medium text-gray-700 border-r border-gray-200 bg-gray-50"
                     style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder
@@ -218,11 +218,11 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={row.id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-4 text-sm">
+                  <td key={cell.id} className="px-4 py-3 text-sm border-r border-gray-200">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -230,14 +230,16 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
             ))}
           </tbody>
         </table>
-        {products.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            <Package size={48} className="mx-auto mb-4 text-gray-300" />
-            <p>Chưa có sản phẩm nào</p>
-            <p className="text-sm mt-2">Nhấn "Thêm sản phẩm" để bắt đầu</p>
-          </div>
-        )}
       </div>
+      {products.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white">
+          <div className="text-center text-gray-500">
+            <Package size={64} className="mx-auto mb-4 text-gray-300" />
+            <p className="text-lg font-medium">Chưa có sản phẩm nào</p>
+            <p className="text-sm mt-2">Nhấn nút "Thêm" ở thanh công cụ để bắt đầu</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

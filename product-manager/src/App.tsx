@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload } from 'lucide-react';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { StatsCards } from './components/StatsCards';
+import { Plus, Download, Upload, Search, Settings } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import type { Product } from './types/product';
@@ -15,6 +12,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Load products on mount
   useEffect(() => {
@@ -22,14 +20,26 @@ function App() {
     loadProducts();
   }, []);
 
-  // Apply filters
+  // Apply filters and search
   useEffect(() => {
     let filtered = products;
+
+    // Filter by status
     if (statusFilter !== 'all') {
-      filtered = products.filter(p => p.status === statusFilter);
+      filtered = filtered.filter(p => p.status === statusFilter);
     }
+
+    // Search
+    if (searchQuery) {
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.categoryName?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
     setFilteredProducts(filtered);
-  }, [products, statusFilter]);
+  }, [products, statusFilter, searchQuery]);
 
   const loadProducts = () => {
     const loadedProducts = storageService.getProducts();
@@ -59,7 +69,8 @@ function App() {
   };
 
   const handleViewProduct = (product: Product) => {
-    alert(`Xem chi tiết sản phẩm: ${product.name}\n\nTính năng này sẽ được phát triển tiếp.`);
+    setEditingProduct(product);
+    setIsModalOpen(true);
   };
 
   const handleNewProduct = () => {
@@ -112,82 +123,119 @@ function App() {
     event.target.value = '';
   };
 
+  // Calculate stats
+  const stats = {
+    total: products.length,
+    published: products.filter(p => p.status === 'published').length,
+    draft: products.filter(p => p.status === 'draft').length,
+    archived: products.filter(p => p.status === 'archived').length,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <div className="flex">
-        <Sidebar />
-
-        <main className="flex-1 p-8">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản lý sản phẩm</h1>
-            <p className="text-gray-600 text-sm">
-              Quản lý tất cả sản phẩm, hình ảnh và trạng thái public
-            </p>
-          </div>
-
-          {/* Stats */}
-          <StatsCards products={products} />
-
-          {/* Action Bar */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4 flex justify-between items-center">
-            <div className="flex gap-2">
-              <button
-                onClick={handleNewProduct}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={18} />
-                Thêm sản phẩm
-              </button>
-
-              <label className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium cursor-pointer">
-                <Upload size={18} />
-                Import
-                <input
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
-              >
-                <Download size={18} />
-                Export
-              </button>
-            </div>
-
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Header - Google Sheets Style */}
+      <header className="border-b border-gray-300 bg-white">
+        {/* Top Bar */}
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Lọc:</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="published">Đã public</option>
-                <option value="draft">Nháp</option>
-                <option value="archived">Đã lưu trữ</option>
-                <option value="scheduled">Đã lên lịch</option>
-                <option value="private">Riêng tư</option>
-              </select>
+              <span className="text-2xl">📦</span>
+              <div>
+                <h1 className="text-xl font-normal text-gray-800">Product Manager</h1>
+                <p className="text-xs text-gray-500">
+                  {stats.total} sản phẩm • {stats.published} published • {stats.draft} draft • {stats.archived} archived
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Products Table */}
-          <ProductTable
-            products={filteredProducts}
-            onEdit={handleEditProduct}
-            onDelete={handleDeleteProduct}
-            onView={handleViewProduct}
-          />
-        </main>
-      </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              title="Cài đặt"
+            >
+              <Settings size={20} className="text-gray-600" />
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar - Google Sheets Style */}
+        <div className="px-4 py-2 flex items-center gap-2 bg-gray-50 border-t border-gray-200">
+          {/* Left Actions */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleNewProduct}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Plus size={16} />
+              Thêm
+            </button>
+
+            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+
+            <label className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-200 rounded transition-colors text-sm cursor-pointer text-gray-700">
+              <Upload size={16} />
+              Import
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImport}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-200 rounded transition-colors text-sm text-gray-700"
+            >
+              <Download size={16} />
+              Export
+            </button>
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1"></div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <input
+                type="text"
+                placeholder="Tìm kiếm sản phẩm..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+              />
+            </div>
+
+            {/* Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="published">✓ Đã public</option>
+              <option value="draft">✎ Nháp</option>
+              <option value="archived">⊗ Đã lưu trữ</option>
+              <option value="scheduled">⏰ Đã lên lịch</option>
+              <option value="private">🔒 Riêng tư</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content - Full Width Spreadsheet */}
+      <main className="flex-1 overflow-auto">
+        <ProductTable
+          products={filteredProducts}
+          onEdit={handleEditProduct}
+          onDelete={handleDeleteProduct}
+          onView={handleViewProduct}
+        />
+      </main>
 
       {/* Product Modal */}
       <ProductModal
