@@ -31,15 +31,27 @@ class StorageService {
     try {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 
-      // Auto-sync to cloud if enabled
+      // Mark as unsaved changes for cloud sync
       if (this.autoSyncEnabled && googleAuthService.isAuthenticated()) {
-        syncService.syncToCloud(products).catch(error => {
-          console.error('Auto-sync to cloud failed:', error);
-        });
+        syncService.markUnsavedChanges();
       }
     } catch (error) {
       console.error('Error saving products:', error);
     }
+  }
+
+  // Manually save to cloud
+  async saveToCloud(products: Product[]): Promise<void> {
+    if (!googleAuthService.isAuthenticated()) {
+      throw new Error('Not connected to Google Drive');
+    }
+
+    await syncService.saveToCloud(products);
+  }
+
+  // Load from cloud
+  async loadFromCloud(): Promise<Product[]> {
+    return await syncService.loadFromCloud();
   }
 
   getProduct(id: string): Product | undefined {
@@ -134,11 +146,13 @@ class StorageService {
   enableDriveSync(): void {
     this.autoSyncEnabled = true;
     localStorage.setItem(STORAGE_KEYS.DRIVE_SYNC_ENABLED, 'true');
+    syncService.enableSync();
   }
 
   disableDriveSync(): void {
     this.autoSyncEnabled = false;
     localStorage.setItem(STORAGE_KEYS.DRIVE_SYNC_ENABLED, 'false');
+    syncService.disableSync();
   }
 
   isDriveSyncEnabled(): boolean {
