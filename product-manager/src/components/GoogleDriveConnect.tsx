@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertCircle, Download } from 'lucide-react';
 import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
@@ -14,7 +14,6 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [user, setUser] = useState<{ name: string; email: string; picture?: string } | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -54,9 +53,9 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
           setUser(googleAuthService.getCurrentUser());
           setSyncEnabled(storageService.isDriveSyncEnabled());
 
-          // Start auto-sync if enabled
+          // Enable sync service
           if (storageService.isDriveSyncEnabled()) {
-            syncService.startAutoSync();
+            syncService.enableSync();
           }
         }
       } catch (error) {
@@ -66,26 +65,24 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
 
     initGoogle();
 
-    // Listen for sync events
+    // Listen for save events
     const unsubscribe = syncService.addListener((event: SyncEvent) => {
-      if (event.type === 'sync_start') {
+      if (event.type === 'save_start') {
         setSyncStatus('syncing');
-      } else if (event.type === 'sync_success') {
+      } else if (event.type === 'save_success') {
         setSyncStatus('success');
-        setLastSync(event.timestamp);
         setErrorMessage('');
         setTimeout(() => setSyncStatus('idle'), 2000);
         onSyncComplete?.();
-      } else if (event.type === 'sync_error') {
+      } else if (event.type === 'save_error') {
         setSyncStatus('error');
-        setErrorMessage(event.message || 'Sync failed');
+        setErrorMessage(event.message || 'Save failed');
         setTimeout(() => setSyncStatus('idle'), 3000);
       }
     });
 
     return () => {
       unsubscribe();
-      syncService.stopAutoSync();
     };
   }, [onSyncComplete]);
 
@@ -130,7 +127,7 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
 
   const handleDisconnect = () => {
     googleAuthService.signOut();
-    syncService.stopAutoSync();
+    syncService.disableSync();
     storageService.disableDriveSync();
     setIsConnected(false);
     setUser(null);
@@ -139,37 +136,36 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
 
   const handleToggleSync = () => {
     if (syncEnabled) {
-      syncService.stopAutoSync();
+      syncService.disableSync();
       storageService.disableDriveSync();
       setSyncEnabled(false);
     } else {
-      syncService.startAutoSync();
+      syncService.enableSync();
       storageService.enableDriveSync();
       setSyncEnabled(true);
     }
   };
 
-  const handleManualSync = async () => {
+  const handleLoadFromCloud = async () => {
     if (!isConnected) return;
 
     try {
-      await syncService.forceSyncNow();
+      setSyncStatus('syncing');
+      const products = await storageService.loadFromCloud();
+
+      // Trigger update in the app
+      window.dispatchEvent(new CustomEvent('products-updated', {
+        detail: { products },
+      }));
+
+      setSyncStatus('success');
+      setTimeout(() => setSyncStatus('idle'), 2000);
+      onSyncComplete?.();
     } catch (error) {
-      console.error('Manual sync failed:', error);
+      console.error('Load from cloud failed:', error);
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('idle'), 3000);
     }
-  };
-
-  const formatLastSync = (date: Date | null) => {
-    if (!date) return 'Chưa đồng bộ';
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSeconds = Math.floor(diffMs / 1000);
-    const diffMinutes = Math.floor(diffSeconds / 60);
-
-    if (diffSeconds < 60) return `${diffSeconds} giây trước`;
-    if (diffMinutes < 60) return `${diffMinutes} phút trước`;
-    return date.toLocaleTimeString('vi-VN');
   };
 
   if (!isConnected) {
@@ -257,30 +253,15 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
         <span className="text-sm text-gray-700">Auto-sync</span>
       </label>
 
-      {/* Sync Status */}
-      <div className="flex items-center gap-2">
-        {syncStatus === 'syncing' && (
-          <RefreshCw size={16} className="animate-spin text-blue-600" />
-        )}
-        {syncStatus === 'success' && (
-          <Check size={16} className="text-green-600" />
-        )}
-        {syncStatus === 'error' && (
-          <X size={16} className="text-red-600" />
-        )}
-        <span className="text-xs text-gray-500">
-          {formatLastSync(lastSync)}
-        </span>
-      </div>
-
-      {/* Manual Sync Button */}
+      {/* Load from Cloud Button */}
       <button
-        onClick={handleManualSync}
+        onClick={handleLoadFromCloud}
         disabled={syncStatus === 'syncing'}
-        className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title="Đồng bộ ngay"
+        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm text-gray-700"
+        title="Tải dữ liệu từ Cloud"
       >
-        <RefreshCw size={18} className="text-gray-600" />
+        <Download size={16} />
+        <span className="hidden sm:inline">Tải từ Cloud</span>
       </button>
 
       {/* Disconnect Button */}
