@@ -127,7 +127,7 @@ class GoogleDriveService {
         alt: 'media',
       });
 
-      return response.result;
+      return response.result as { products: Product[]; version: number; lastModified: string };
     } catch (error) {
       console.error('Error reading file from Google Drive:', error);
       return {
@@ -139,7 +139,7 @@ class GoogleDriveService {
   }
 
   // Update file content in Google Drive
-  private async updateFileContent(fileId: string, data: any): Promise<void> {
+  private async updateFileContent(fileId: string, data: { products: Product[]; version: number; lastModified: string }): Promise<void> {
     const boundary = '-------314159265358979323846';
     const delimiter = `\r\n--${boundary}\r\n`;
     const closeDelimiter = `\r\n--${boundary}--`;
@@ -220,7 +220,12 @@ class GoogleDriveService {
         fields: 'modifiedTime',
       });
 
-      const remoteModifiedTime = new Date(response.result.modifiedTime);
+      const modifiedTime = response.result.modifiedTime;
+      if (!modifiedTime) {
+        return false;
+      }
+
+      const remoteModifiedTime = new Date(modifiedTime);
 
       if (!this.lastSyncTime) {
         return true;
