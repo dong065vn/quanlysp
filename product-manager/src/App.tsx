@@ -5,6 +5,7 @@ import { ProductModal } from './components/ProductModal';
 import { GoogleDriveConnect } from './components/GoogleDriveConnect';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { CloudSyncControls } from './components/CloudSyncControls';
+import { ToastContainer, toast, type ToastMessage } from './components/Toast';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
 import * as XLSX from 'xlsx';
@@ -18,6 +19,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDriveSettings, setShowDriveSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
 
   // Load products on mount
   useEffect(() => {
@@ -33,8 +35,14 @@ function App() {
 
     window.addEventListener('products-updated', handleProductsUpdate as EventListener);
 
+    // Subscribe to toast notifications
+    const unsubscribe = toast.subscribe((messages) => {
+      setToastMessages(messages);
+    });
+
     return () => {
       window.removeEventListener('products-updated', handleProductsUpdate as EventListener);
+      unsubscribe();
     };
   }, []);
 
@@ -152,6 +160,10 @@ function App() {
     published: products.filter(p => p.status === 'published').length,
     draft: products.filter(p => p.status === 'draft').length,
     archived: products.filter(p => p.status === 'archived').length,
+  };
+
+  const handleCloseToast = (id: string) => {
+    toast.remove(id);
   };
 
   return (
@@ -317,6 +329,9 @@ function App() {
         onSave={handleSaveProduct}
         product={editingProduct}
       />
+
+      {/* Toast Notifications */}
+      <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
     </div>
   );
 }
