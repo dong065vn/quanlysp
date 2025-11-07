@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, AlertCircle, Download } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
@@ -12,8 +12,6 @@ interface GoogleDriveConnectProps {
 export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [syncEnabled, setSyncEnabled] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [user, setUser] = useState<{ name: string; email: string; picture?: string } | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -51,9 +49,8 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
         if (googleAuthService.isAuthenticated()) {
           setIsConnected(true);
           setUser(googleAuthService.getCurrentUser());
-          setSyncEnabled(storageService.isDriveSyncEnabled());
 
-          // Enable sync service
+          // Enable sync service if it was enabled
           if (storageService.isDriveSyncEnabled()) {
             syncService.enableSync();
           }
@@ -64,27 +61,7 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
     };
 
     initGoogle();
-
-    // Listen for save events
-    const unsubscribe = syncService.addListener((event: SyncEvent) => {
-      if (event.type === 'save_start') {
-        setSyncStatus('syncing');
-      } else if (event.type === 'save_success') {
-        setSyncStatus('success');
-        setErrorMessage('');
-        setTimeout(() => setSyncStatus('idle'), 2000);
-        onSyncComplete?.();
-      } else if (event.type === 'save_error') {
-        setSyncStatus('error');
-        setErrorMessage(event.message || 'Save failed');
-        setTimeout(() => setSyncStatus('idle'), 3000);
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [onSyncComplete]);
+  }, []);
 
   const handleConnectClick = () => {
     setShowPermissionsModal(true);
@@ -126,46 +103,15 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
   };
 
   const handleDisconnect = () => {
+    if (!confirm('Bạn có chắc chắn muốn ngắt kết nối với Google Drive?')) {
+      return;
+    }
+
     googleAuthService.signOut();
     syncService.disableSync();
     storageService.disableDriveSync();
     setIsConnected(false);
     setUser(null);
-    setSyncEnabled(false);
-  };
-
-  const handleToggleSync = () => {
-    if (syncEnabled) {
-      syncService.disableSync();
-      storageService.disableDriveSync();
-      setSyncEnabled(false);
-    } else {
-      syncService.enableSync();
-      storageService.enableDriveSync();
-      setSyncEnabled(true);
-    }
-  };
-
-  const handleLoadFromCloud = async () => {
-    if (!isConnected) return;
-
-    try {
-      setSyncStatus('syncing');
-      const products = await storageService.loadFromCloud();
-
-      // Trigger update in the app
-      window.dispatchEvent(new CustomEvent('products-updated', {
-        detail: { products },
-      }));
-
-      setSyncStatus('success');
-      setTimeout(() => setSyncStatus('idle'), 2000);
-      onSyncComplete?.();
-    } catch (error) {
-      console.error('Load from cloud failed:', error);
-      setSyncStatus('error');
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    }
   };
 
   if (!isConnected) {
@@ -226,7 +172,7 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3">
       {/* User Info */}
       <div className="flex items-center gap-2">
         {user?.picture && (
@@ -242,44 +188,20 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
         </div>
       </div>
 
-      {/* Sync Toggle */}
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={syncEnabled}
-          onChange={handleToggleSync}
-          className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-        />
-        <span className="text-sm text-gray-700">Auto-sync</span>
-      </label>
-
-      {/* Load from Cloud Button */}
-      <button
-        onClick={handleLoadFromCloud}
-        disabled={syncStatus === 'syncing'}
-        className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm text-gray-700"
-        title="Tải dữ liệu từ Cloud"
-      >
-        <Download size={16} />
-        <span className="hidden sm:inline">Tải từ Cloud</span>
-      </button>
+      {/* Connected Status Badge */}
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded">
+        <Cloud size={14} className="text-green-600" />
+        <span className="text-xs text-green-700 font-medium">Đã kết nối</span>
+      </div>
 
       {/* Disconnect Button */}
       <button
         onClick={handleDisconnect}
-        className="p-2 hover:bg-red-50 rounded-full transition-colors"
+        className="p-1.5 hover:bg-red-50 rounded transition-colors"
         title="Ngắt kết nối"
       >
-        <CloudOff size={18} className="text-red-600" />
+        <CloudOff size={16} className="text-red-600" />
       </button>
-
-      {/* Error Message */}
-      {errorMessage && (
-        <div className="flex items-center gap-1 text-red-600 text-xs">
-          <AlertCircle size={14} />
-          <span>{errorMessage}</span>
-        </div>
-      )}
     </div>
   );
 }

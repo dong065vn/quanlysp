@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Search, Settings, Save, Menu, X } from 'lucide-react';
+import { Plus, Download, Upload, Search, Settings, Menu, X } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import { GoogleDriveConnect } from './components/GoogleDriveConnect';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
+import { CloudSyncControls } from './components/CloudSyncControls';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
-import { googleAuthService } from './services/googleAuth';
 import * as XLSX from 'xlsx';
 
 function App() {
@@ -18,7 +18,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDriveSettings, setShowDriveSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   // Load products on mount
   useEffect(() => {
@@ -68,25 +67,6 @@ function App() {
   const handleSyncComplete = () => {
     // Reload products after sync
     loadProducts();
-  };
-
-  const handleManualSave = async () => {
-    if (!googleAuthService.isAuthenticated()) {
-      alert('Vui lòng kết nối Google Drive trước');
-      setShowDriveSettings(true);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await storageService.saveToCloud(products);
-      // Success notification handled by SaveStatusIndicator
-    } catch (error) {
-      console.error('Save failed:', error);
-      alert('Không thể lưu lên Google Drive. Vui lòng thử lại.');
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleSaveProduct = (product: Product) => {
@@ -204,18 +184,11 @@ function App() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-3">
-            {/* Save Button - visible when connected */}
-            {googleAuthService.isAuthenticated() && (
-              <button
-                onClick={handleManualSave}
-                disabled={isSaving}
-                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Lưu lên Google Drive"
-              >
-                <Save size={16} className={isSaving ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">Lưu</span>
-              </button>
-            )}
+            {/* Cloud Sync Controls */}
+            <CloudSyncControls
+              products={products}
+              onSyncComplete={handleSyncComplete}
+            />
 
             {/* Save Status Indicator */}
             <SaveStatusIndicator />
