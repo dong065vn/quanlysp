@@ -138,8 +138,12 @@ class GoogleDriveService {
     }
   }
 
-  // Update file content in Google Drive
-  private async updateFileContent(fileId: string, data: { products: Product[]; version: number; lastModified: string }): Promise<void> {
+  // Update file content in Google Drive with retry mechanism
+  private async updateFileContent(
+    fileId: string,
+    data: { products: Product[]; version: number; lastModified: string },
+    retries = 3
+  ): Promise<void> {
     const boundary = '-------314159265358979323846';
     const delimiter = `\r\n--${boundary}\r\n`;
     const closeDelimiter = `\r\n--${boundary}--`;
@@ -158,18 +162,40 @@ class GoogleDriveService {
       JSON.stringify(data) +
       closeDelimiter;
 
-    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${googleAuthService.getAccessToken()}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      body: multipartRequestBody,
-    });
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${googleAuthService.getAccessToken()}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+          },
+          body: multipartRequestBody,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Drive API error: ${response.status} - ${errorText}`);
+        }
+
+        return; // Success
+      } catch (error) {
+        const isLastAttempt = attempt === retries - 1;
+
+        if (isLastAttempt) {
+          throw error;
+        }
+
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`Upload attempt ${attempt + 1} failed, retrying in ${delay}ms...`, error);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
-  // Save products to Google Drive
-  async saveProducts(products: Product[]): Promise<void> {
+  // Save products to Google Drive with conflict detection
+  async saveProducts(products: Product[], options?: { forceOverwrite?: boolean }): Promise<void> {
     if (this.syncInProgress) {
       console.warn('Sync already in progress');
       return;
@@ -179,6 +205,19 @@ class GoogleDriveService {
 
     try {
       const fileId = await this.getOrCreateDataFile();
+
+      // Check for remote changes before saving (conflict detection)
+      if (!options?.forceOverwrite && this.lastSyncTime) {
+        const hasRemoteChanges = await this.checkForRemoteChanges();
+        if (hasRemoteChanges) {
+          console.warn('Remote changes detected. Consider pulling latest data first.');
+          // Note: In a production app, you might want to:
+          // 1. Show a conflict dialog
+          // 2. Merge changes automatically
+          // 3. Create a backup before overwriting
+          // For now, we'll log a warning but continue
+        }
+      }
 
       const data = {
         products,

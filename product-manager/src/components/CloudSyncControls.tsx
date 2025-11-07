@@ -3,6 +3,7 @@ import { Upload, Download, RefreshCw, Cloud, CloudOff } from 'lucide-react';
 import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
+import { toast } from './Toast';
 
 interface CloudSyncControlsProps {
   products: any[];
@@ -56,17 +57,27 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
 
   const handleUploadToCloud = async () => {
     if (!isConnected) {
-      alert('Vui lòng kết nối Google Drive trước');
+      toast.warning(
+        'Chưa kết nối Google Drive',
+        'Vui lòng kết nối Google Drive trước khi lưu dữ liệu lên cloud.'
+      );
       return;
     }
 
     setIsSaving(true);
     try {
       await storageService.saveToCloud(products);
-      alert('✅ Đã lưu lên Cloud thành công!');
+      toast.success(
+        'Lưu thành công!',
+        `Đã lưu ${products.length} sản phẩm lên Google Drive.`
+      );
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('❌ Không thể lưu lên Cloud. Vui lòng thử lại.');
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      toast.error(
+        'Không thể lưu lên Cloud',
+        `Lỗi: ${errorMessage}. Vui lòng kiểm tra kết nối và thử lại.`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -74,11 +85,21 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
 
   const handleDownloadFromCloud = async () => {
     if (!isConnected) {
-      alert('Vui lòng kết nối Google Drive trước');
+      toast.warning(
+        'Chưa kết nối Google Drive',
+        'Vui lòng kết nối Google Drive trước khi tải dữ liệu từ cloud.'
+      );
       return;
     }
 
-    if (!confirm('⚠️ Tải dữ liệu từ Cloud sẽ ghi đè dữ liệu local hiện tại.\n\nBạn có chắc chắn muốn tiếp tục?')) {
+    const confirmed = confirm(
+      '⚠️ Tải dữ liệu từ Cloud sẽ GHI ĐÈ dữ liệu local hiện tại.\n\n' +
+      'Mọi thay đổi chưa lưu sẽ bị mất!\n\n' +
+      'Bạn có chắc chắn muốn tiếp tục?'
+    );
+
+    if (!confirmed) {
+      toast.info('Đã hủy', 'Không tải dữ liệu từ cloud.');
       return;
     }
 
@@ -95,12 +116,21 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
       setSyncStatus('success');
       setTimeout(() => setSyncStatus('idle'), 2000);
       onSyncComplete?.();
-      alert('✅ Đã tải dữ liệu từ Cloud thành công!');
+
+      toast.success(
+        'Tải thành công!',
+        `Đã tải ${cloudProducts.length} sản phẩm từ Google Drive.`
+      );
     } catch (error) {
       console.error('Download failed:', error);
       setSyncStatus('error');
       setTimeout(() => setSyncStatus('idle'), 3000);
-      alert('❌ Không thể tải từ Cloud. Vui lòng thử lại.');
+
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      toast.error(
+        'Không thể tải từ Cloud',
+        `Lỗi: ${errorMessage}. Vui lòng kiểm tra kết nối và thử lại.`
+      );
     } finally {
       setIsLoading(false);
     }
