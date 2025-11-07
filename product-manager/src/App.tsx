@@ -4,6 +4,7 @@ import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { CloudSyncControls } from './components/CloudSyncControls';
+import { RealtimeSyncIndicator } from './components/RealtimeSyncIndicator';
 import { ToastContainer, toast, type ToastMessage } from './components/Toast';
 import { DriveSettingsPanel } from './components/DriveSettingsPanel';
 import { SyncHistory } from './components/SyncHistory';
@@ -276,6 +277,9 @@ function App() {
 
             {/* Save Status Indicator */}
             <SaveStatusIndicator />
+
+            {/* Realtime Sync Indicator */}
+            <RealtimeSyncIndicator />
 
             {/* Google Drive Settings Toggle */}
             <button

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
+import { realtimeSyncService } from '../services/realtimeSyncService';
 import { storageService } from '../services/storage';
 import { GoogleDrivePermissionsModal } from './GoogleDrivePermissionsModal';
 
@@ -103,12 +104,13 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
   };
 
   const handleDisconnect = () => {
-    if (!confirm('Bạn có chắc chắn muốn ngắt kết nối với Google Drive?')) {
+    if (!confirm('Bạn có chắc chắn muốn ngắt kết nối với Google Drive?\n\nĐiều này sẽ:\n- Ngắt kết nối với tài khoản Google\n- Tắt tự động lưu\n- Tắt đồng bộ realtime\n- Dữ liệu local vẫn được giữ nguyên')) {
       return;
     }
 
     googleAuthService.signOut();
     syncService.disableSync();
+    realtimeSyncService.disable();
     storageService.disableDriveSync();
     setIsConnected(false);
     setUser(null);
