@@ -35,7 +35,7 @@ export interface Product {
   tags: string[];
   images: ProductImage[];
   links: ProductLink[];
-  customFields?: Record<string, any>;
+  customFields?: Record<string, string | number | boolean>;
   createdAt: string;
   updatedAt: string;
 }

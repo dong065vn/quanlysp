@@ -1,3 +1,5 @@
+# Project-wide gitignore
+
 # Dependencies
 node_modules/
 .pnp
@@ -26,6 +28,7 @@ lerna-debug.log*
 .env.production.local
 .env.production
 *.env
+product-manager/.env
 
 # Testing
 coverage/
@@ -42,7 +45,6 @@ coverage/
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea/
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
@@ -68,3 +70,6 @@ next-env.d.ts
 tmp/
 temp/
 *.tmp
+
+# Security alerts (generated files)
+SECURITY_ALERT.md

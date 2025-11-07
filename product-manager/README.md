@@ -58,6 +58,11 @@ cd product-manager
 # Cài đặt dependencies
 npm install
 
+# Setup environment variables (cho Google Drive sync)
+cp .env.example .env
+# Sau đó edit file .env và điền Google credentials
+# Xem hướng dẫn chi tiết bên dưới
+
 # Chạy development server
 npm run dev
 
@@ -123,6 +128,25 @@ product-manager/
 - ✅ **Sample data**: Tự động tạo dữ liệu mẫu lần đầu sử dụng
 
 **Lưu ý**: Dữ liệu lưu trên browser, không sync giữa các máy/browsers khác nhau.
+
+### Google Drive Sync (Optional)
+
+Ứng dụng có tích hợp **Google Drive sync** để đồng bộ dữ liệu:
+
+- ☁️ **Cloud Backup**: Tự động backup lên Google Drive
+- 🔄 **Auto Sync**: Đồng bộ tự động giữa các thiết bị
+- 🔐 **Secure**: Dữ liệu được mã hóa và lưu trên Drive của bạn
+
+**Setup Google Drive:**
+1. Copy file `.env.example` thành `.env`
+2. Lấy credentials từ [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+3. Điền `VITE_GOOGLE_CLIENT_ID` và `VITE_GOOGLE_API_KEY` vào file `.env`
+4. Xem hướng dẫn chi tiết trong file `.env.example`
+
+**Deploy lên Vercel:**
+- Xem hướng dẫn chi tiết trong [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+- Cần config environment variables trên Vercel
+- Cần thêm domain Vercel vào Google OAuth settings
 
 ## 📖 Hướng dẫn sử dụng
 

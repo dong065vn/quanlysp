@@ -11,8 +11,19 @@ export interface GoogleUser {
   picture?: string;
 }
 
+interface TokenClient {
+  callback: (response: TokenResponse) => void | Promise<void>;
+  requestAccessToken: (options: { prompt: string }) => void;
+}
+
+interface TokenResponse {
+  access_token: string;
+  error?: string;
+  error_description?: string;
+}
+
 class GoogleAuthService {
-  private tokenClient: any = null;
+  private tokenClient: TokenClient | null = null;
   private gapiInitialized = false;
   private gisInitialized = false;
   private accessToken: string | null = null;
@@ -148,7 +159,7 @@ class GoogleAuthService {
         }
 
         // Set up callback for token response
-        this.tokenClient.callback = async (response: any) => {
+        this.tokenClient.callback = async (response: TokenResponse) => {
           if (response.error) {
             console.error('OAuth error:', response.error);
             reject(new Error(response.error));
@@ -245,9 +256,42 @@ class GoogleAuthService {
 export const googleAuthService = new GoogleAuthService();
 
 // Type declarations for window
+interface GapiClient {
+  init: (config: { apiKey: string; discoveryDocs: string[] }) => Promise<void>;
+  drive: {
+    files: {
+      list: (params: Record<string, unknown>) => Promise<{ result: { files?: Array<{ id?: string; name?: string; modifiedTime?: string }> } }>;
+      create: (params: Record<string, unknown>) => Promise<{ result: { id?: string } }>;
+      get: (params: Record<string, unknown>) => Promise<{ result: { modifiedTime?: string; [key: string]: unknown } }>;
+    };
+  };
+  setToken: (token: { access_token: string } | null) => void;
+  getToken: () => { access_token: string } | null;
+}
+
+interface Gapi {
+  load: (api: string, callback: () => void) => void;
+  client: GapiClient;
+}
+
+interface GoogleAccounts {
+  oauth2: {
+    initTokenClient: (config: {
+      client_id: string;
+      scope: string;
+      callback: string | ((response: TokenResponse) => void | Promise<void>);
+    }) => TokenClient;
+    revoke: (accessToken: string) => void;
+  };
+}
+
+interface Google {
+  accounts: GoogleAccounts;
+}
+
 declare global {
   interface Window {
-    gapi: any;
-    google: any;
+    gapi: Gapi;
+    google: Google;
   }
 }

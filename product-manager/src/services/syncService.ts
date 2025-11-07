@@ -15,7 +15,7 @@ export interface SyncEvent {
   type: 'save_start' | 'save_success' | 'save_error' | 'changes_detected' | 'conflict_detected';
   timestamp: Date;
   message?: string;
-  data?: any;
+  data?: Array<{ local: Product; remote: Product }>;
 }
 
 type SyncListener = (event: SyncEvent) => void;
