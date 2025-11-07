@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { googleAuthService } from '../services/googleAuth';
-import { syncService, type SyncEvent } from '../services/syncService';
+import { syncService } from '../services/syncService';
 import { storageService } from '../services/storage';
 import { GoogleDrivePermissionsModal } from './GoogleDrivePermissionsModal';
 
@@ -9,7 +9,7 @@ interface GoogleDriveConnectProps {
   onSyncComplete?: () => void;
 }
 
-export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) {
+export function GoogleDriveConnect({ onSyncComplete: _onSyncComplete }: GoogleDriveConnectProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
