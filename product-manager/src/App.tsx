@@ -8,6 +8,7 @@ import { ToastContainer, toast, type ToastMessage } from './components/Toast';
 import { DriveSettingsPanel } from './components/DriveSettingsPanel';
 import { SyncHistory } from './components/SyncHistory';
 import { OnlineIndicator } from './components/OnlineIndicator';
+import { useConfirmDialog } from './components/ConfirmDialog';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
 import * as XLSX from 'xlsx';
@@ -23,6 +24,7 @@ function App() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [showSyncHistory, setShowSyncHistory] = useState(false);
+  const { confirm: confirmDelete, DialogComponent: DeleteConfirmDialog } = useConfirmDialog();
 
   // Load products on mount
   useEffect(() => {
@@ -95,10 +97,20 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteProduct = (id: string) => {
-    if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
+  const handleDeleteProduct = async (id: string) => {
+    const product = products.find(p => p.id === id);
+    const confirmed = await confirmDelete({
+      type: 'danger',
+      title: 'Xác nhận xóa sản phẩm',
+      message: `Bạn có chắc muốn xóa sản phẩm "${product?.name || ''}"?`,
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+    });
+
+    if (confirmed) {
       storageService.deleteProduct(id);
       loadProducts();
+      toast.success('Đã xóa sản phẩm thành công!');
     }
   };
 
@@ -144,13 +156,49 @@ function App() {
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
 
         console.log('Imported data:', jsonData);
-        alert(`Import thành công ${jsonData.length} sản phẩm!\n\nTính năng này sẽ được hoàn thiện để map data và lưu vào storage.`);
+
+        // Map imported data to Product format
+        const importedProducts: Product[] = jsonData.map((row, index) => {
+          const categories = storageService.getCategories();
+          const category = categories.find(c => c.name === row['Danh mục']) || categories[0];
+
+          return {
+            id: Date.now().toString() + index,
+            sku: row['SKU'] || `IMPORT-${Date.now()}-${index}`,
+            name: row['Tên sản phẩm'] || 'Sản phẩm chưa có tên',
+            slug: (row['Tên sản phẩm'] || '').toLowerCase().replace(/\s+/g, '-') || `product-${index}`,
+            description: row['Mô tả'] || '',
+            shortDescription: row['Mô tả ngắn'] || '',
+            categoryId: category.id,
+            categoryName: category.name,
+            price: Number(row['Giá']) || 0,
+            salePrice: row['Giá sale'] ? Number(row['Giá sale']) : undefined,
+            stockQuantity: Number(row['Số lượng']) || 0,
+            status: (row['Trạng thái'] as Product['status']) || 'draft',
+            images: [],
+            links: [],
+            tags: row['Tags'] ? row['Tags'].split(',').map((t: string) => t.trim()).filter((t: string) => t) : [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        });
+
+        // Save imported products
+        importedProducts.forEach(product => {
+          storageService.addProduct(product);
+        });
+
+        // Reload products
+        loadProducts();
+
+        // Show success toast
+        toast.success(`Import thành công ${importedProducts.length} sản phẩm!`);
       } catch (error) {
         console.error('Import error:', error);
-        alert('Lỗi khi import file. Vui lòng kiểm tra lại định dạng file.');
+        toast.error('Lỗi khi import file. Vui lòng kiểm tra lại định dạng file.');
       }
     };
     reader.readAsBinaryString(file);
@@ -170,35 +218,56 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header - Google Sheets Style - Responsive */}
-      <header className="border-b border-gray-300 bg-white sticky top-0 z-10">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex flex-col">
+      {/* Header - Modern Figma Style - Responsive */}
+      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-lg sticky top-0 z-10 shadow-sm">
         {/* Top Bar */}
-        <div className="px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+              className="p-2 hover:bg-primary-50 text-gray-600 hover:text-primary-600 rounded-xl transition-all duration-200 lg:hidden active:scale-95"
+              aria-label="Menu"
             >
               {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xl sm:text-2xl">📦</span>
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="hidden sm:flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg">
+                <span className="text-2xl">📦</span>
+              </div>
+              <span className="text-2xl sm:hidden">📦</span>
               <div className="min-w-0">
-                <h1 className="text-base sm:text-xl font-normal text-gray-800 truncate">Product Manager</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">
-                  {stats.total} sản phẩm • {stats.published} published • {stats.draft} draft • {stats.archived} archived
-                </p>
-                <p className="text-xs text-gray-500 sm:hidden">
-                  {stats.total} sản phẩm
-                </p>
+                <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent truncate">
+                  Product Manager
+                </h1>
+                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                  <div className="hidden sm:flex items-center gap-4">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></span>
+                      <span className="font-medium text-gray-700">{stats.total}</span> sản phẩm
+                    </span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-success-500 rounded-full"></span>
+                      {stats.published} published
+                    </span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-warning-500 rounded-full"></span>
+                      {stats.draft} draft
+                    </span>
+                  </div>
+                  <p className="sm:hidden font-medium text-gray-700">
+                    {stats.total} sản phẩm
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Cloud Sync Controls */}
             <CloudSyncControls
               products={products}
@@ -211,32 +280,33 @@ function App() {
             {/* Google Drive Settings Toggle */}
             <button
               onClick={() => setShowDriveSettings(!showDriveSettings)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2.5 hover:bg-primary-50 text-gray-600 hover:text-primary-600 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95"
               title="Google Drive Settings"
             >
-              <Settings size={20} className="text-gray-600" />
+              <Settings size={20} />
             </button>
           </div>
         </div>
 
-        {/* Toolbar - Google Sheets Style - Responsive */}
-        <div className={`px-2 sm:px-4 py-2 bg-gray-50 border-t border-gray-200 ${showMobileMenu ? 'block' : 'hidden lg:block'}`}>
-          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-0">
+        {/* Toolbar - Modern Figma Style - Responsive */}
+        <div className={`px-4 sm:px-6 lg:px-8 py-3 bg-white/50 border-t border-gray-200/80 ${showMobileMenu ? 'block' : 'hidden lg:block'}`}>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
             {/* Left Actions */}
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={handleNewProduct}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl hover:from-primary-700 hover:to-primary-800 transition-all duration-200 text-sm font-medium shadow-elegant hover:shadow-hover active:scale-95"
               >
-                <Plus size={16} />
-                <span>Thêm</span>
+                <Plus size={18} strokeWidth={2.5} />
+                <span>Thêm sản phẩm</span>
               </button>
 
               <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block"></div>
 
-              <label className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-200 rounded transition-colors text-sm cursor-pointer text-gray-700">
+              <label className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all duration-200 text-sm cursor-pointer text-gray-700 font-medium shadow-sm hover:shadow active:scale-95">
                 <Upload size={16} />
                 <span className="hidden sm:inline">Import</span>
+                <span className="sm:hidden">📥</span>
                 <input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -247,10 +317,11 @@ function App() {
 
               <button
                 onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-200 rounded transition-colors text-sm text-gray-700"
+                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-all duration-200 text-sm text-gray-700 font-medium shadow-sm hover:shadow active:scale-95"
               >
                 <Download size={16} />
                 <span className="hidden sm:inline">Export</span>
+                <span className="sm:hidden">📤</span>
               </button>
             </div>
 
@@ -260,14 +331,14 @@ function App() {
             {/* Right Actions */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               {/* Search */}
-              <div className="relative flex-1 sm:flex-none">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <div className="relative flex-1 sm:flex-none group">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors" size={18} />
                 <input
                   type="text"
-                  placeholder="Tìm kiếm..."
+                  placeholder="Tìm kiếm sản phẩm..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-48 lg:w-64 pl-9 pr-4 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-56 lg:w-72 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 shadow-sm"
                 />
               </div>
 
@@ -275,12 +346,12 @@ function App() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-700 font-medium shadow-sm transition-all duration-200 cursor-pointer"
               >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="published">✓ Đã public</option>
-                <option value="draft">✎ Nháp</option>
-                <option value="archived">⊗ Đã lưu trữ</option>
+                <option value="all">📋 Tất cả trạng thái</option>
+                <option value="published">✅ Đã public</option>
+                <option value="draft">✏️ Nháp</option>
+                <option value="archived">📦 Đã lưu trữ</option>
                 <option value="scheduled">⏰ Đã lên lịch</option>
                 <option value="private">🔒 Riêng tư</option>
               </select>
@@ -297,14 +368,16 @@ function App() {
         />
       </header>
 
-      {/* Main Content - Full Width Spreadsheet */}
-      <main className="flex-1 overflow-auto">
-        <ProductTable
-          products={filteredProducts}
-          onEdit={handleEditProduct}
-          onDelete={handleDeleteProduct}
-          onView={handleViewProduct}
-        />
+      {/* Main Content - Modern Spreadsheet */}
+      <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+        <div className="bg-white rounded-2xl shadow-elegant overflow-hidden border border-gray-200">
+          <ProductTable
+            products={filteredProducts}
+            onEdit={handleEditProduct}
+            onDelete={handleDeleteProduct}
+            onView={handleViewProduct}
+          />
+        </div>
       </main>
 
       {/* Product Modal */}
@@ -329,6 +402,9 @@ function App() {
 
       {/* Online/Offline Indicator */}
       <OnlineIndicator />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog />
     </div>
   );
 }

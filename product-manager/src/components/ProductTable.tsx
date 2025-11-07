@@ -24,43 +24,53 @@ const columnHelper = createColumnHelper<Product>();
 function StatusBadge({ status }: { status: ProductStatus }) {
   const config = {
     published: {
-      bg: 'bg-green-100',
-      text: 'text-green-800',
-      dot: 'bg-green-500',
+      bg: 'bg-success-50',
+      text: 'text-success-700',
+      dot: 'bg-success-500',
+      border: 'border-success-200',
       label: 'Đã public',
+      icon: '✅',
     },
     draft: {
-      bg: 'bg-yellow-100',
-      text: 'text-yellow-800',
-      dot: 'bg-yellow-500',
+      bg: 'bg-warning-50',
+      text: 'text-warning-700',
+      dot: 'bg-warning-500',
+      border: 'border-warning-200',
       label: 'Nháp',
+      icon: '✏️',
     },
     archived: {
-      bg: 'bg-red-100',
-      text: 'text-red-800',
-      dot: 'bg-red-500',
+      bg: 'bg-danger-50',
+      text: 'text-danger-700',
+      dot: 'bg-danger-500',
+      border: 'border-danger-200',
       label: 'Đã lưu trữ',
+      icon: '📦',
     },
     scheduled: {
-      bg: 'bg-blue-100',
-      text: 'text-blue-800',
-      dot: 'bg-blue-500',
+      bg: 'bg-info-50',
+      text: 'text-info-700',
+      dot: 'bg-info-500',
+      border: 'border-info-200',
       label: 'Đã lên lịch',
+      icon: '⏰',
     },
     private: {
-      bg: 'bg-gray-100',
-      text: 'text-gray-800',
+      bg: 'bg-gray-50',
+      text: 'text-gray-700',
       dot: 'bg-gray-500',
+      border: 'border-gray-200',
       label: 'Riêng tư',
+      icon: '🔒',
     },
   };
 
   const style = config[status] || config.draft;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`}></span>
-      {style.label}
+    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border ${style.bg} ${style.text} ${style.border} transition-all duration-200 hover:shadow-sm`}>
+      <span className={`w-2 h-2 rounded-full ${style.dot} animate-pulse`}></span>
+      <span>{style.label}</span>
     </span>
   );
 }
@@ -79,7 +89,7 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
             type="checkbox"
             checked={table.getIsAllRowsSelected()}
             onChange={table.getToggleAllRowsSelectedHandler()}
-            className="w-4 h-4 cursor-pointer"
+            className="w-4 h-4 cursor-pointer accent-primary-600 rounded transition-all duration-200"
           />
         ),
         cell: ({ row }) => (
@@ -87,7 +97,7 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
             type="checkbox"
             checked={row.getIsSelected()}
             onChange={row.getToggleSelectedHandler()}
-            className="w-4 h-4 cursor-pointer"
+            className="w-4 h-4 cursor-pointer accent-primary-600 rounded transition-all duration-200"
           />
         ),
         size: 40,
@@ -96,21 +106,26 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         id: 'image',
         header: 'Hình ảnh',
         cell: () => (
-          <div className="w-12 h-12 bg-gray-200 rounded-md border border-gray-300 flex items-center justify-center text-gray-400">
+          <div className="w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl border border-gray-300 flex items-center justify-center text-2xl shadow-sm hover:shadow transition-all duration-200 hover-lift">
             📦
           </div>
         ),
-        size: 80,
+        size: 90,
       }),
       columnHelper.accessor('name', {
         header: 'Tên sản phẩm',
         cell: (info) => (
-          <div>
-            <div className="font-medium text-gray-900">{info.getValue()}</div>
-            <div className="text-xs text-gray-500">SKU: {info.row.original.sku}</div>
+          <div className="py-1">
+            <div className="font-semibold text-gray-900 mb-1 hover:text-primary-600 transition-colors cursor-pointer">
+              {info.getValue()}
+            </div>
+            <div className="inline-flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-200">
+              <span className="font-medium">SKU:</span>
+              <span className="font-mono">{info.row.original.sku}</span>
+            </div>
           </div>
         ),
-        size: 300,
+        size: 320,
       }),
       columnHelper.accessor('categoryName', {
         header: 'Danh mục',
@@ -121,21 +136,34 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         header: 'Giá',
         cell: (info) => {
           const value = info.getValue();
-          return value ? `${value.toLocaleString('vi-VN')}đ` : '-';
+          return value ? (
+            <div className="font-semibold text-gray-900">
+              {value.toLocaleString('vi-VN')}
+              <span className="text-gray-500 ml-0.5">đ</span>
+            </div>
+          ) : (
+            <span className="text-gray-400">-</span>
+          );
         },
-        size: 120,
+        size: 130,
       }),
       columnHelper.accessor('stockQuantity', {
         header: 'Kho',
         cell: (info) => {
           const value = info.getValue();
+          const isLow = value > 0 && value <= 10;
+          const isEmpty = value === 0;
           return (
-            <span className={value === 0 ? 'text-red-600 font-medium' : ''}>
-              {value}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`font-semibold ${isEmpty ? 'text-danger-600' : isLow ? 'text-warning-600' : 'text-success-600'}`}>
+                {value}
+              </span>
+              {isEmpty && <span className="text-xs bg-danger-100 text-danger-700 px-2 py-0.5 rounded-full font-medium">Hết</span>}
+              {isLow && <span className="text-xs bg-warning-100 text-warning-700 px-2 py-0.5 rounded-full font-medium">Thấp</span>}
+            </div>
           );
         },
-        size: 80,
+        size: 120,
       }),
       columnHelper.accessor('status', {
         header: 'Trạng thái',
@@ -185,31 +213,31 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         id: 'actions',
         header: 'Thao tác',
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <button
               onClick={() => onView(row.original)}
-              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 hover:bg-primary-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Xem"
             >
-              <Eye size={16} className="text-gray-600" />
+              <Eye size={16} className="text-gray-500 group-hover:text-primary-600 transition-colors" />
             </button>
             <button
               onClick={() => onEdit(row.original)}
-              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-2 hover:bg-info-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Sửa"
             >
-              <Pencil size={16} className="text-gray-600" />
+              <Pencil size={16} className="text-gray-500 group-hover:text-info-600 transition-colors" />
             </button>
             <button
               onClick={() => onDelete(row.original.id)}
-              className="p-2 hover:bg-red-50 rounded-md transition-colors"
+              className="p-2 hover:bg-danger-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Xóa"
             >
-              <Trash2 size={16} className="text-red-600" />
+              <Trash2 size={16} className="text-gray-500 group-hover:text-danger-600 transition-colors" />
             </button>
           </div>
         ),
-        size: 120,
+        size: 130,
       }),
     ],
     [onEdit, onDelete, onView]
@@ -232,16 +260,16 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
   });
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <div className="overflow-auto h-full">
         <table className="w-full border-collapse">
-          <thead className="bg-gray-50 sticky top-0 z-10 border-b-2 border-gray-300">
+          <thead className="bg-gradient-to-b from-gray-50 to-gray-100/50 sticky top-0 z-10 border-b-2 border-gray-200">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-2 text-left text-xs font-medium text-gray-700 border-r border-gray-200 bg-gray-50"
+                    className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-200/50 bg-gradient-to-b from-gray-50 to-gray-100/50"
                     style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder
@@ -252,11 +280,15 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
               </tr>
             ))}
           </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-blue-50 transition-colors border-b border-gray-200">
+          <tbody className="bg-white divide-y divide-gray-200">
+            {table.getRowModel().rows.map((row, index) => (
+              <tr
+                key={row.id}
+                className="hover:bg-gradient-to-r hover:from-primary-50/50 hover:to-transparent transition-all duration-200 group animate-slide-up"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-sm border-r border-gray-200">
+                  <td key={cell.id} className="px-4 py-4 text-sm border-r border-gray-100 group-hover:border-primary-100 transition-colors">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -266,11 +298,17 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         </table>
       </div>
       {products.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white">
-          <div className="text-center text-gray-500">
-            <Package size={64} className="mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium">Chưa có sản phẩm nào</p>
-            <p className="text-sm mt-2">Nhấn nút "Thêm" ở thanh công cụ để bắt đầu</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
+          <div className="text-center text-gray-500 p-8 animate-fade-in">
+            <div className="mb-6 inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl shadow-lg">
+              <Package size={48} className="text-gray-400" />
+            </div>
+            <p className="text-xl font-bold text-gray-700 mb-2">Chưa có sản phẩm nào</p>
+            <p className="text-sm text-gray-500 mb-6">Bắt đầu thêm sản phẩm đầu tiên của bạn</p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium">
+              <span>💡</span>
+              <span>Nhấn nút "Thêm sản phẩm" ở thanh công cụ</span>
+            </div>
           </div>
         </div>
       )}
