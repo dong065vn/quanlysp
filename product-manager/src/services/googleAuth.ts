@@ -28,6 +28,14 @@ class GoogleAuthService {
   private gisInitialized = false;
   private accessToken: string | null = null;
   private currentUser: GoogleUser | null = null;
+  private tokenExpiry: number | null = null;
+
+  // LocalStorage keys for persistence
+  private readonly STORAGE_KEYS = {
+    ACCESS_TOKEN: 'google_access_token',
+    USER_INFO: 'google_user_info',
+    TOKEN_EXPIRY: 'google_token_expiry',
+  };
 
   private config: GoogleAuthConfig = {
     clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
@@ -57,6 +65,130 @@ class GoogleAuthService {
     }
 
     return { valid: true };
+  }
+
+  // Save token to localStorage
+  private saveTokenToStorage(token: string, expiresIn: number = 3600): void {
+    try {
+      const expiry = Date.now() + (expiresIn * 1000); // Convert to milliseconds
+      localStorage.setItem(this.STORAGE_KEYS.ACCESS_TOKEN, token);
+      localStorage.setItem(this.STORAGE_KEYS.TOKEN_EXPIRY, expiry.toString());
+      this.tokenExpiry = expiry;
+      console.log('Token saved to localStorage');
+    } catch (error) {
+      console.error('Failed to save token to localStorage:', error);
+    }
+  }
+
+  // Load token from localStorage
+  private loadTokenFromStorage(): string | null {
+    try {
+      const token = localStorage.getItem(this.STORAGE_KEYS.ACCESS_TOKEN);
+      const expiryStr = localStorage.getItem(this.STORAGE_KEYS.TOKEN_EXPIRY);
+
+      if (!token || !expiryStr) {
+        return null;
+      }
+
+      const expiry = parseInt(expiryStr, 10);
+      this.tokenExpiry = expiry;
+
+      // Check if token is expired
+      if (Date.now() >= expiry) {
+        console.log('Token expired, clearing storage');
+        this.clearTokenStorage();
+        return null;
+      }
+
+      console.log('Token loaded from localStorage');
+      return token;
+    } catch (error) {
+      console.error('Failed to load token from localStorage:', error);
+      return null;
+    }
+  }
+
+  // Save user info to localStorage
+  private saveUserToStorage(user: GoogleUser): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEYS.USER_INFO, JSON.stringify(user));
+      console.log('User info saved to localStorage');
+    } catch (error) {
+      console.error('Failed to save user info to localStorage:', error);
+    }
+  }
+
+  // Load user info from localStorage
+  private loadUserFromStorage(): GoogleUser | null {
+    try {
+      const userStr = localStorage.getItem(this.STORAGE_KEYS.USER_INFO);
+      if (!userStr) return null;
+
+      return JSON.parse(userStr);
+    } catch (error) {
+      console.error('Failed to load user info from localStorage:', error);
+      return null;
+    }
+  }
+
+  // Clear token from localStorage
+  private clearTokenStorage(): void {
+    try {
+      localStorage.removeItem(this.STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(this.STORAGE_KEYS.USER_INFO);
+      localStorage.removeItem(this.STORAGE_KEYS.TOKEN_EXPIRY);
+      this.tokenExpiry = null;
+      console.log('Token storage cleared');
+    } catch (error) {
+      console.error('Failed to clear token storage:', error);
+    }
+  }
+
+  // Check if token is valid
+  private isTokenValid(): boolean {
+    if (!this.accessToken || !this.tokenExpiry) {
+      return false;
+    }
+
+    // Check if token is not expired (with 5 minute buffer)
+    return Date.now() < (this.tokenExpiry - 5 * 60 * 1000);
+  }
+
+  // Restore session from localStorage
+  async restoreSession(): Promise<boolean> {
+    try {
+      const token = this.loadTokenFromStorage();
+      if (!token) {
+        console.log('No saved token found');
+        return false;
+      }
+
+      this.accessToken = token;
+
+      // Set token in gapi client
+      if (window.gapi?.client) {
+        window.gapi.client.setToken({
+          access_token: token,
+        });
+      }
+
+      // Load user info from storage or fetch fresh
+      const savedUser = this.loadUserFromStorage();
+      if (savedUser) {
+        this.currentUser = savedUser;
+        console.log('Session restored successfully');
+        return true;
+      } else {
+        // Fetch user info if not in storage
+        await this.loadUserInfo();
+        console.log('Session restored with fresh user info');
+        return true;
+      }
+    } catch (error) {
+      console.error('Failed to restore session:', error);
+      this.clearTokenStorage();
+      return false;
+    }
   }
 
   // Initialize Google API
@@ -169,6 +301,9 @@ class GoogleAuthService {
           console.log('Access token received successfully');
           this.accessToken = response.access_token;
 
+          // Save token to localStorage (expires in 1 hour by default)
+          this.saveTokenToStorage(response.access_token, 3600);
+
           // Set token in gapi client
           if (window.gapi?.client) {
             window.gapi.client.setToken({
@@ -214,6 +349,8 @@ class GoogleAuthService {
           name: data.name,
           picture: data.picture,
         };
+        // Save user info to localStorage
+        this.saveUserToStorage(this.currentUser);
       }
     } catch (error) {
       console.error('Failed to load user info:', error);
@@ -244,12 +381,20 @@ class GoogleAuthService {
     }
     this.accessToken = null;
     this.currentUser = null;
+    this.tokenExpiry = null;
+
+    // Clear token from localStorage
+    this.clearTokenStorage();
+    console.log('Signed out and cleared session');
   }
 
   // Initialize everything
   async initialize(): Promise<void> {
     await this.initializeGapi();
     this.initializeGis();
+
+    // Try to restore previous session
+    await this.restoreSession();
   }
 }
 

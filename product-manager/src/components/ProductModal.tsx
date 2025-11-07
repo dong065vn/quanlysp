@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ExternalLink, Upload as UploadIcon, Image as ImageIcon } from 'lucide-react';
+import { X, Plus, Trash2, ExternalLink, Upload as UploadIcon, Image as ImageIcon, Cloud } from 'lucide-react';
 import type { Product, ProductStatus, ProductFormData, ProductLink } from '../types/product';
 import { storageService } from '../services/storage';
+import { googleAuthService } from '../services/googleAuth';
 import { toast } from './Toast';
 
 interface ProductModalProps {
@@ -35,6 +36,8 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
   });
   const [imagePreview, setImagePreview] = useState<string>('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [savingToDrive, setSavingToDrive] = useState(false);
+  const [isConnectedToDrive, setIsConnectedToDrive] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -69,6 +72,18 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
       setLinks([]);
     }
   }, [product]);
+
+  // Check Drive connection status
+  useEffect(() => {
+    const checkConnection = () => {
+      setIsConnectedToDrive(googleAuthService.isAuthenticated());
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAddLink = () => {
     if (!newLink.url || !newLink.label) {
@@ -152,6 +167,56 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
 
     onSave(productData);
     onClose();
+  };
+
+  const handleSaveAndSyncToDrive = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isConnectedToDrive) {
+      toast.warning(
+        'Chưa kết nối Google Drive',
+        'Vui lòng kết nối Google Drive trước khi sử dụng tính năng này.'
+      );
+      return;
+    }
+
+    const category = categories.find(c => c.id === formData.categoryId);
+
+    const productData: Product = {
+      id: product?.id || Date.now().toString(),
+      ...formData,
+      slug: formData.name.toLowerCase().replace(/\s+/g, '-'),
+      categoryName: category?.name,
+      images: product?.images || [],
+      links: links,
+      createdAt: product?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save to localStorage first
+    onSave(productData);
+
+    // Then sync to Drive
+    setSavingToDrive(true);
+    try {
+      // Get all products including the new one
+      const allProducts = storageService.getProducts();
+      await storageService.saveToCloud(allProducts);
+
+      toast.success(
+        'Lưu & Sync thành công!',
+        `Đã lưu "${productData.name}" và đồng bộ lên Google Drive.`
+      );
+      onClose();
+    } catch (error) {
+      console.error('Failed to sync to Drive:', error);
+      toast.error(
+        'Lỗi đồng bộ',
+        'Đã lưu local nhưng không thể đồng bộ lên Drive. Vui lòng thử lại sau.'
+      );
+    } finally {
+      setSavingToDrive(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -488,7 +553,7 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
           </div>
 
           {/* Footer */}
-          <div className="px-6 sm:px-8 py-5 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200 flex justify-end gap-3">
+          <div className="px-6 sm:px-8 py-5 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200 flex justify-between items-center gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -496,22 +561,50 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
             >
               Hủy
             </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 shadow-elegant hover:shadow-hover transition-all duration-200 active:scale-95 flex items-center gap-2"
-            >
-              {product ? (
-                <>
-                  <span>✅</span>
-                  <span>Cập nhật</span>
-                </>
-              ) : (
-                <>
-                  <Plus size={18} />
-                  <span>Thêm mới</span>
-                </>
+
+            <div className="flex gap-3">
+              {/* Save & Sync to Drive button - only show if connected */}
+              {isConnectedToDrive && (
+                <button
+                  type="button"
+                  onClick={handleSaveAndSyncToDrive}
+                  disabled={savingToDrive}
+                  className="px-4 sm:px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 shadow-elegant hover:shadow-hover transition-all duration-200 active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Lưu và đồng bộ lên Google Drive ngay lập tức"
+                >
+                  {savingToDrive ? (
+                    <>
+                      <div className="animate-spin">⏳</div>
+                      <span className="hidden sm:inline">Đang sync...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud size={18} />
+                      <span className="hidden sm:inline">Lưu & Sync</span>
+                      <span className="sm:hidden">☁️</span>
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+
+              {/* Regular save button */}
+              <button
+                type="submit"
+                className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 shadow-elegant hover:shadow-hover transition-all duration-200 active:scale-95 flex items-center gap-2"
+              >
+                {product ? (
+                  <>
+                    <span>✅</span>
+                    <span>Cập nhật</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={18} />
+                    <span>Thêm mới</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
