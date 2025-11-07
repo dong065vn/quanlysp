@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { X, Plus, Trash2, ExternalLink, Upload as UploadIcon, Image as ImageIcon } from 'lucide-react';
 import type { Product, ProductStatus, ProductFormData, ProductLink } from '../types/product';
 import { storageService } from '../services/storage';
+import { toast } from './Toast';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
     url: '',
     label: '',
   });
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -69,7 +72,7 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
 
   const handleAddLink = () => {
     if (!newLink.url || !newLink.label) {
-      alert('Vui lòng nhập đầy đủ URL và Label');
+      toast.warning('Vui lòng nhập đầy đủ URL và Label');
       return;
     }
 
@@ -87,10 +90,48 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
       url: '',
       label: '',
     });
+    toast.success('Đã thêm link thành công!');
   };
 
   const handleRemoveLink = (linkId: string) => {
     setLinks(links.filter(l => l.id !== linkId));
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file hình ảnh');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setImagePreview(result);
+      setUploadingImage(false);
+      toast.success('Tải ảnh lên thành công!');
+    };
+    reader.onerror = () => {
+      setUploadingImage(false);
+      toast.error('Lỗi khi tải ảnh lên');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview('');
+    toast.info('Đã xóa ảnh');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -116,16 +157,21 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scale-in">
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">
-            {product ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
-          </h2>
+        <div className="flex justify-between items-center px-6 sm:px-8 py-5 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-transparent">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              {product ? '✏️ Chỉnh sửa sản phẩm' : '➕ Thêm sản phẩm mới'}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {product ? 'Cập nhật thông tin sản phẩm của bạn' : 'Điền thông tin để tạo sản phẩm mới'}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 active:scale-95"
           >
             <X size={24} className="text-gray-500" />
           </button>
@@ -133,11 +179,75 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-140px)]">
-          <div className="px-6 py-4 space-y-4">
+          <div className="px-6 sm:px-8 py-6 space-y-6">
+            {/* Image Upload Section */}
+            <div className="bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-gray-300 rounded-2xl p-6 hover:border-primary-400 transition-all duration-300">
+              <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <ImageIcon size={18} className="text-primary-600" />
+                Hình ảnh sản phẩm
+              </label>
+
+              {imagePreview ? (
+                <div className="relative group">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full h-64 object-cover rounded-xl border-2 border-gray-200 shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-xl flex items-center justify-center gap-3">
+                    <label className="px-4 py-2 bg-white text-gray-900 rounded-lg font-medium cursor-pointer hover:bg-gray-100 transition-colors active:scale-95 flex items-center gap-2">
+                      <UploadIcon size={16} />
+                      Thay đổi
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="px-4 py-2 bg-danger-600 text-white rounded-lg font-medium hover:bg-danger-700 transition-colors active:scale-95 flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-48 cursor-pointer hover:bg-gray-100/50 rounded-xl transition-all duration-200 group">
+                  <div className="text-center">
+                    <div className="mb-4 inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-2xl group-hover:bg-primary-200 transition-colors">
+                      {uploadingImage ? (
+                        <div className="animate-spin">⏳</div>
+                      ) : (
+                        <UploadIcon size={32} className="text-primary-600" />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      {uploadingImage ? 'Đang tải lên...' : 'Nhấn để tải ảnh lên'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PNG, JPG, GIF tới 5MB
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImage}
+                  />
+                </label>
+              )}
+            </div>
+
             {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Tên sản phẩm *
                 </label>
                 <input
@@ -145,12 +255,12 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input hover:border-primary-300 transition-all"
                   placeholder="VD: iPhone 15 Pro Max"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   SKU *
                 </label>
                 <input
@@ -158,7 +268,7 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   required
                   value={formData.sku}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input font-mono hover:border-primary-300 transition-all"
                   placeholder="VD: IP15PM-256"
                 />
               </div>
@@ -166,13 +276,13 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 Danh mục
               </label>
               <select
                 value={formData.categoryId}
                 onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input hover:border-primary-300 transition-all cursor-pointer"
               >
                 <option value="">-- Chọn danh mục --</option>
                 {categories.map((cat) => (
@@ -185,27 +295,27 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 Mô tả ngắn
               </label>
               <input
                 type="text"
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input hover:border-primary-300 transition-all"
                 placeholder="Mô tả ngắn gọn về sản phẩm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 Mô tả chi tiết
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input hover:border-primary-300 transition-all"
                 placeholder="Mô tả đầy đủ về sản phẩm"
               />
             </div>
@@ -213,7 +323,7 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
             {/* Price & Stock */}
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Giá (đ) *
                 </label>
                 <input
@@ -222,11 +332,11 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   min="0"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input hover:border-primary-300 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Giá sale (đ)
                 </label>
                 <input
@@ -234,11 +344,11 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   min="0"
                   value={formData.salePrice || ''}
                   onChange={(e) => setFormData({ ...formData, salePrice: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input hover:border-primary-300 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
                   Số lượng *
                 </label>
                 <input
@@ -247,32 +357,32 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   min="0"
                   value={formData.stockQuantity}
                   onChange={(e) => setFormData({ ...formData, stockQuantity: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input hover:border-primary-300 transition-all"
                 />
               </div>
             </div>
 
             {/* Status */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 Trạng thái
               </label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as ProductStatus })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input hover:border-primary-300 transition-all cursor-pointer"
               >
-                <option value="draft">Nháp</option>
-                <option value="published">Đã public</option>
-                <option value="archived">Đã lưu trữ</option>
-                <option value="scheduled">Đã lên lịch</option>
-                <option value="private">Riêng tư</option>
+                <option value="draft">✏️ Nháp</option>
+                <option value="published">✅ Đã public</option>
+                <option value="archived">📦 Đã lưu trữ</option>
+                <option value="scheduled">⏰ Đã lên lịch</option>
+                <option value="private">🔒 Riêng tư</option>
               </select>
             </div>
 
             {/* Tags */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 Tags (phân cách bằng dấu phẩy)
               </label>
               <input
@@ -282,7 +392,7 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
                   ...formData,
                   tags: e.target.value.split(',').map(t => t.trim()).filter(t => t)
                 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="input hover:border-primary-300 transition-all"
                 placeholder="VD: iPhone, Apple, Premium"
               />
             </div>
@@ -378,19 +488,29 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+          <div className="px-6 sm:px-8 py-5 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              className="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 active:scale-95"
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-medium hover:from-primary-700 hover:to-primary-800 shadow-elegant hover:shadow-hover transition-all duration-200 active:scale-95 flex items-center gap-2"
             >
-              {product ? 'Cập nhật' : 'Thêm mới'}
+              {product ? (
+                <>
+                  <span>✅</span>
+                  <span>Cập nhật</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={18} />
+                  <span>Thêm mới</span>
+                </>
+              )}
             </button>
           </div>
         </form>
