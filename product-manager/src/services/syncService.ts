@@ -1,6 +1,7 @@
 import { googleDriveService } from './googleDrive';
 import { googleAuthService } from './googleAuth';
 import type { Product } from '../types/product';
+import { syncHistoryService } from '../components/SyncHistory';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'success' | 'unsaved';
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -87,6 +88,14 @@ class SyncService {
     try {
       if (products) {
         await googleDriveService.saveProducts(products);
+
+        // Log auto-save to sync history
+        syncHistoryService.addEntry({
+          type: 'auto-save',
+          status: 'success',
+          message: 'Tự động lưu dữ liệu thành công',
+          productCount: products.length,
+        });
       }
 
       this.config.hasUnsavedChanges = false;
@@ -109,10 +118,20 @@ class SyncService {
       this.saveStatus = 'error';
       this.setStatus('error');
 
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Log error to sync history
+      syncHistoryService.addEntry({
+        type: 'auto-save',
+        status: 'error',
+        message: 'Tự động lưu thất bại',
+        errorDetails: errorMessage,
+      });
+
       this.notifyListeners({
         type: 'save_error',
         timestamp: new Date(),
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: errorMessage,
       });
 
       throw error;

@@ -4,6 +4,8 @@ import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
 import { toast } from './Toast';
+import { syncHistoryService } from './SyncHistory';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface CloudSyncControlsProps {
   products: any[];
@@ -16,6 +18,7 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
 
   useEffect(() => {
     // Check connection status
@@ -67,6 +70,15 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
     setIsSaving(true);
     try {
       await storageService.saveToCloud(products);
+
+      // Log to sync history
+      syncHistoryService.addEntry({
+        type: 'upload',
+        status: 'success',
+        message: 'Đã lưu dữ liệu lên Google Drive thành công',
+        productCount: products.length,
+      });
+
       toast.success(
         'Lưu thành công!',
         `Đã lưu ${products.length} sản phẩm lên Google Drive.`
@@ -74,6 +86,16 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
     } catch (error) {
       console.error('Upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+
+      // Log error to sync history
+      syncHistoryService.addEntry({
+        type: 'upload',
+        status: 'error',
+        message: 'Không thể lưu lên Cloud',
+        productCount: products.length,
+        errorDetails: errorMessage,
+      });
+
       toast.error(
         'Không thể lưu lên Cloud',
         `Lỗi: ${errorMessage}. Vui lòng kiểm tra kết nối và thử lại.`
@@ -92,18 +114,13 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
       return;
     }
 
-    const confirmed = confirm(
-      '⚠️ Tải dữ liệu từ Cloud sẽ GHI ĐÈ dữ liệu local hiện tại.\n\n' +
-      'Mọi thay đổi chưa lưu sẽ bị mất!\n\n' +
-      'Bạn có chắc chắn muốn tiếp tục?'
-    );
+    setShowDownloadConfirm(true);
+  };
 
-    if (!confirmed) {
-      toast.info('Đã hủy', 'Không tải dữ liệu từ cloud.');
-      return;
-    }
-
+  const handleConfirmDownload = async () => {
+    setShowDownloadConfirm(false);
     setIsLoading(true);
+
     try {
       setSyncStatus('syncing');
       const cloudProducts = await storageService.loadFromCloud();
@@ -117,6 +134,14 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
       setTimeout(() => setSyncStatus('idle'), 2000);
       onSyncComplete?.();
 
+      // Log to sync history
+      syncHistoryService.addEntry({
+        type: 'download',
+        status: 'success',
+        message: 'Đã tải dữ liệu từ Google Drive thành công',
+        productCount: cloudProducts.length,
+      });
+
       toast.success(
         'Tải thành công!',
         `Đã tải ${cloudProducts.length} sản phẩm từ Google Drive.`
@@ -127,6 +152,15 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
       setTimeout(() => setSyncStatus('idle'), 3000);
 
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+
+      // Log error to sync history
+      syncHistoryService.addEntry({
+        type: 'download',
+        status: 'error',
+        message: 'Không thể tải từ Cloud',
+        errorDetails: errorMessage,
+      });
+
       toast.error(
         'Không thể tải từ Cloud',
         `Lỗi: ${errorMessage}. Vui lòng kiểm tra kết nối và thử lại.`
@@ -225,6 +259,26 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
           <span>✗</span>
         </div>
       )}
+
+      {/* Download Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDownloadConfirm}
+        type="warning"
+        title="Tải dữ liệu từ Cloud"
+        message="Tải dữ liệu từ Cloud sẽ GHI ĐÈ toàn bộ dữ liệu local hiện tại."
+        details={[
+          'Mọi thay đổi chưa lưu sẽ bị mất vĩnh viễn',
+          'Dữ liệu local sẽ được thay thế bằng dữ liệu từ Google Drive',
+          'Khuyến nghị: Export Excel để backup trước khi tiếp tục',
+        ]}
+        confirmText="Tiếp tục tải"
+        cancelText="Hủy bỏ"
+        onConfirm={handleConfirmDownload}
+        onCancel={() => {
+          setShowDownloadConfirm(false);
+          toast.info('Đã hủy', 'Không tải dữ liệu từ cloud.');
+        }}
+      />
     </div>
   );
 }
