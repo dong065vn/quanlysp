@@ -27,6 +27,27 @@ class GoogleAuthService {
     ],
   };
 
+  // Validate credentials format
+  private validateCredentials(): { valid: boolean; error?: string } {
+    // Check if API Key is actually a Client Secret (common mistake)
+    if (this.config.apiKey.startsWith('GOCSPX-')) {
+      return {
+        valid: false,
+        error: 'VITE_GOOGLE_API_KEY không đúng! Bạn đang dùng OAuth Client Secret (GOCSPX-...) thay vì API Key. API Key thường bắt đầu với "AIzaSy..." hoặc chuỗi ngẫu nhiên khác. Vui lòng tạo API Key mới trong Google Cloud Console > Credentials > Create Credentials > API Key.'
+      };
+    }
+
+    // Check if Client ID looks correct
+    if (this.config.clientId && !this.config.clientId.includes('.apps.googleusercontent.com')) {
+      return {
+        valid: false,
+        error: 'VITE_GOOGLE_CLIENT_ID không đúng định dạng. Client ID phải có dạng: xxxxx.apps.googleusercontent.com'
+      };
+    }
+
+    return { valid: true };
+  }
+
   // Initialize Google API
   async initializeGapi(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -40,6 +61,13 @@ class GoogleAuthService {
         return;
       }
 
+      // Validate credentials before initializing
+      const validation = this.validateCredentials();
+      if (!validation.valid) {
+        reject(new Error(validation.error));
+        return;
+      }
+
       window.gapi.load('client', async () => {
         try {
           await window.gapi.client.init({
@@ -47,9 +75,11 @@ class GoogleAuthService {
             discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
           });
           this.gapiInitialized = true;
+          console.log('Google API initialized successfully');
           resolve();
         } catch (error) {
-          reject(error);
+          console.error('Failed to initialize Google API client:', error);
+          reject(new Error('Không thể kết nối Google Drive API. Vui lòng kiểm tra API Key và thử lại.'));
         }
       });
     });
