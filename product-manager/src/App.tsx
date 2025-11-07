@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Plus, Download, Upload, Search, Settings, Menu, X } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
-import { GoogleDriveConnect } from './components/GoogleDriveConnect';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { CloudSyncControls } from './components/CloudSyncControls';
 import { ToastContainer, toast, type ToastMessage } from './components/Toast';
+import { DriveSettingsPanel } from './components/DriveSettingsPanel';
+import { SyncHistory } from './components/SyncHistory';
+import { OnlineIndicator } from './components/OnlineIndicator';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
 import * as XLSX from 'xlsx';
@@ -20,6 +22,7 @@ function App() {
   const [showDriveSettings, setShowDriveSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
+  const [showSyncHistory, setShowSyncHistory] = useState(false);
 
   // Load products on mount
   useEffect(() => {
@@ -285,28 +288,13 @@ function App() {
           </div>
         </div>
 
-        {/* Google Drive Settings Panel */}
-        {showDriveSettings && (
-          <div className="px-4 py-3 bg-blue-50 border-t border-blue-200">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-gray-800 mb-1">
-                  Google Drive Sync
-                </h3>
-                <p className="text-xs text-gray-600 mb-3">
-                  Kết nối với Google Drive để tự động đồng bộ dữ liệu của bạn trên cloud
-                </p>
-                <GoogleDriveConnect onSyncComplete={handleSyncComplete} />
-              </div>
-              <button
-                onClick={() => setShowDriveSettings(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Google Drive Settings Panel - New Enhanced Version */}
+        <DriveSettingsPanel
+          isOpen={showDriveSettings}
+          onClose={() => setShowDriveSettings(false)}
+          onSyncComplete={handleSyncComplete}
+          onOpenSyncHistory={() => setShowSyncHistory(true)}
+        />
       </header>
 
       {/* Main Content - Full Width Spreadsheet */}
@@ -332,6 +320,15 @@ function App() {
 
       {/* Toast Notifications */}
       <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
+
+      {/* Sync History Modal */}
+      <SyncHistory
+        isOpen={showSyncHistory}
+        onClose={() => setShowSyncHistory(false)}
+      />
+
+      {/* Online/Offline Indicator */}
+      <OnlineIndicator />
     </div>
   );
 }
