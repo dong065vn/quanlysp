@@ -1,7 +1,7 @@
 import { googleDriveService } from './googleDrive';
 import { googleAuthService } from './googleAuth';
 import type { Product } from '../types/product';
-import { syncHistoryService } from '../components/SyncHistory';
+import { syncHistoryService } from './syncHistoryService';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'success' | 'unsaved';
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
