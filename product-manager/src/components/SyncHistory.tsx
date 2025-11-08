@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, XCircle, Upload, Download, RefreshCw, X } from 'lucide-react';
+import { Clock, XCircle, Upload, Download, RefreshCw, X, ArrowLeft } from 'lucide-react';
 import { syncHistoryService, SyncHistoryEntry } from '../services/syncHistoryService';
 
 interface SyncHistoryProps {
@@ -97,9 +97,11 @@ export function SyncHistory({ isOpen, onClose }: SyncHistoryProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-xl transition-all duration-200 active:scale-95"
+            title="Quay về"
           >
-            <X size={20} />
+            <ArrowLeft size={20} className="text-gray-600" />
+            <span className="text-sm font-medium text-gray-700 hidden sm:inline">Quay về</span>
           </button>
         </div>
 
