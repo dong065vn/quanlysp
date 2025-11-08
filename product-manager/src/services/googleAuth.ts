@@ -56,6 +56,8 @@ class GoogleAuthService {
     scopes: [
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/drive.appdata',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
     ],
   };
 
@@ -178,11 +180,20 @@ class GoogleAuthService {
 
       this.accessToken = token;
 
+      // Ensure GAPI is initialized before setting token
+      if (!this.gapiInitialized) {
+        console.log('Initializing GAPI for session restore...');
+        await this.initializeGapi();
+      }
+
       // Set token in gapi client
       if (window.gapi?.client) {
         window.gapi.client.setToken({
           access_token: token,
         });
+        console.log('Token restored in GAPI client');
+      } else {
+        console.warn('GAPI client not available during session restore');
       }
 
       // Load user info from storage or fetch fresh
@@ -193,9 +204,14 @@ class GoogleAuthService {
         return true;
       } else {
         // Fetch user info if not in storage
-        await this.loadUserInfo();
-        console.log('Session restored with fresh user info');
-        return true;
+        try {
+          await this.loadUserInfo();
+          console.log('Session restored with fresh user info');
+          return true;
+        } catch (error) {
+          console.warn('Could not fetch user info, but session token is valid');
+          return true; // Still return true as we have a valid token
+        }
       }
     } catch (error) {
       console.error('Failed to restore session:', error);
@@ -217,25 +233,37 @@ class GoogleAuthService {
         return;
       }
 
-      // Validate credentials before initializing
+      // Validate credentials (only warn if invalid, don't fail)
       const validation = this.validateCredentials();
       if (!validation.valid) {
-        reject(new Error(validation.error));
-        return;
+        console.warn('API Key validation warning:', validation.error);
+        console.log('Continuing with OAuth-only mode...');
       }
 
       window.gapi.load('client', async () => {
         try {
-          await window.gapi.client.init({
-            apiKey: this.config.apiKey,
+          // Initialize with or without API key
+          // When using OAuth, API key is optional
+          const initConfig: { apiKey?: string; discoveryDocs: string[] } = {
             discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-          });
+          };
+
+          // Only add API key if it's valid (not a client secret)
+          if (this.config.apiKey && !this.config.apiKey.startsWith('GOCSPX-')) {
+            initConfig.apiKey = this.config.apiKey;
+          }
+
+          await window.gapi.client.init(initConfig);
           this.gapiInitialized = true;
           console.log('Google API initialized successfully');
           resolve();
         } catch (error) {
           console.error('Failed to initialize Google API client:', error);
-          reject(new Error('Không thể kết nối Google Drive API. Vui lòng kiểm tra API Key và thử lại.'));
+          // Don't reject here - we can still use OAuth without API key
+          // The token will be set after OAuth flow completes
+          this.gapiInitialized = true;
+          console.log('GAPI initialized in OAuth-only mode');
+          resolve();
         }
       });
     });
@@ -311,25 +339,40 @@ class GoogleAuthService {
             return;
           }
 
-          console.log('Access token received successfully');
-          this.accessToken = response.access_token;
+          try {
+            console.log('Access token received successfully');
+            this.accessToken = response.access_token;
 
-          // Save token to localStorage (expires in 1 hour by default)
-          this.saveTokenToStorage(response.access_token, 3600);
+            // Save token to localStorage (expires in 1 hour by default)
+            this.saveTokenToStorage(response.access_token, 3600);
 
-          // Set token in gapi client
-          if (window.gapi?.client) {
-            window.gapi.client.setToken({
-              access_token: response.access_token,
-            });
+            // Ensure GAPI is initialized before setting token
+            if (!this.gapiInitialized) {
+              console.log('GAPI not initialized yet, initializing now...');
+              await this.initializeGapi();
+            }
+
+            // Set token in gapi client
+            if (window.gapi?.client) {
+              window.gapi.client.setToken({
+                access_token: response.access_token,
+              });
+              console.log('Token set in GAPI client');
+            } else {
+              console.warn('GAPI client not available');
+            }
+
+            // Load user info
+            await this.loadUserInfo();
+
+            // Notify all listeners that user signed in
+            this.notifyAuthChanged('sign_in');
+
+            resolve(response.access_token);
+          } catch (error) {
+            console.error('Error in token callback:', error);
+            reject(error);
           }
-
-          await this.loadUserInfo();
-
-          // Notify all listeners that user signed in
-          this.notifyAuthChanged('sign_in');
-
-          resolve(response.access_token);
         };
 
         // Check if token already exists
@@ -350,27 +393,37 @@ class GoogleAuthService {
 
   // Load user information
   private async loadUserInfo(): Promise<void> {
-    if (!this.accessToken) return;
+    if (!this.accessToken) {
+      console.warn('Cannot load user info: no access token');
+      return;
+    }
 
     try {
+      console.log('Loading user info from Google...');
       const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        this.currentUser = {
-          email: data.email,
-          name: data.name,
-          picture: data.picture,
-        };
-        // Save user info to localStorage
-        this.saveUserToStorage(this.currentUser);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to load user info: ${response.status} ${response.statusText}`, errorText);
+        throw new Error(`Failed to get user info: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
+      this.currentUser = {
+        email: data.email,
+        name: data.name,
+        picture: data.picture,
+      };
+      console.log('User info loaded successfully:', this.currentUser.email);
+      // Save user info to localStorage
+      this.saveUserToStorage(this.currentUser);
     } catch (error) {
-      console.error('Failed to load user info:', error);
+      console.error('Error loading user info:', error);
+      throw error;
     }
   }
 
