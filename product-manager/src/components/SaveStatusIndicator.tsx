@@ -12,8 +12,14 @@ export function SaveStatusIndicator() {
     // Check connection status
     setIsConnected(googleAuthService.isAuthenticated());
 
+    // Listen for auth state changes
+    const unsubscribeAuth = googleAuthService.addAuthListener((event) => {
+      console.log('Auth state changed in SaveStatusIndicator:', event.type, event.isAuthenticated);
+      setIsConnected(event.isAuthenticated);
+    });
+
     // Listen for sync events
-    const unsubscribe = syncService.addListener((event: SyncEvent) => {
+    const unsubscribeSync = syncService.addListener((event: SyncEvent) => {
       if (event.type === 'save_start') {
         setSaveStatus('saving');
       } else if (event.type === 'save_success') {
@@ -31,7 +37,8 @@ export function SaveStatusIndicator() {
     setLastSaveTime(syncService.getLastSaveTime());
 
     return () => {
-      unsubscribe();
+      unsubscribeAuth();
+      unsubscribeSync();
     };
   }, []);
 

@@ -64,6 +64,22 @@ export function GoogleDriveConnect({ onSyncComplete, onConnectSuccess }: GoogleD
     };
 
     initGoogle();
+
+    // Listen for auth state changes
+    const unsubscribe = googleAuthService.addAuthListener((event) => {
+      console.log('Auth state changed in GoogleDriveConnect:', event.type, event.isAuthenticated);
+      setIsConnected(event.isAuthenticated);
+      setUser(event.user);
+
+      // Clear error when authenticated
+      if (event.isAuthenticated) {
+        setErrorMessage('');
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleConnectClick = () => {

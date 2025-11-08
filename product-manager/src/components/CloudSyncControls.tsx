@@ -25,8 +25,14 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
     setIsConnected(googleAuthService.isAuthenticated());
     setAutoSaveEnabled(storageService.isDriveSyncEnabled());
 
+    // Listen for auth state changes
+    const unsubscribeAuth = googleAuthService.addAuthListener((event) => {
+      console.log('Auth state changed in CloudSyncControls:', event.type, event.isAuthenticated);
+      setIsConnected(event.isAuthenticated);
+    });
+
     // Listen for sync events
-    const unsubscribe = syncService.addListener((event: SyncEvent) => {
+    const unsubscribeSync = syncService.addListener((event: SyncEvent) => {
       if (event.type === 'save_start') {
         setSyncStatus('syncing');
         setIsSaving(true);
@@ -43,20 +49,10 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
     });
 
     return () => {
-      unsubscribe();
+      unsubscribeAuth();
+      unsubscribeSync();
     };
   }, [onSyncComplete]);
-
-  // Update connection status when auth changes
-  useEffect(() => {
-    const checkAuth = () => {
-      setIsConnected(googleAuthService.isAuthenticated());
-    };
-
-    // Check periodically
-    const interval = setInterval(checkAuth, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleUploadToCloud = async () => {
     if (!isConnected) {
