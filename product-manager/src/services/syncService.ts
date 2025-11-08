@@ -2,6 +2,7 @@ import { googleDriveService } from './googleDrive';
 import { googleAuthService } from './googleAuth';
 import type { Product } from '../types/product';
 import { syncHistoryService } from './syncHistoryService';
+import { AUTO_SAVE_DELAY_MS } from '../constants/config';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'success' | 'unsaved';
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -31,7 +32,6 @@ class SyncService {
     hasUnsavedChanges: false,
   };
   private autoSaveTimeout: number | null = null;
-  private autoSaveDelay = 2000; // Auto-save after 2 seconds of inactivity (like Google Docs)
 
   // Mark changes as detected (like Google Docs)
   markUnsavedChanges(): void {
@@ -60,7 +60,7 @@ class SyncService {
       this.saveToCloud().catch(error => {
         console.error('Auto-save failed:', error);
       });
-    }, this.autoSaveDelay);
+    }, AUTO_SAVE_DELAY_MS);
   }
 
   // Cancel auto-save
