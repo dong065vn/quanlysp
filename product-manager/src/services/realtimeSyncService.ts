@@ -2,6 +2,7 @@ import { googleDriveService } from './googleDrive';
 import { googleAuthService } from './googleAuth';
 import { storageService } from './storage';
 import type { Product } from '../types/product';
+import { POLL_INTERVAL_MS } from '../constants/config';
 
 export type RealtimeSyncStatus = 'idle' | 'checking' | 'syncing' | 'synced' | 'error' | 'conflict';
 
@@ -22,7 +23,6 @@ class RealtimeSyncService {
   private status: RealtimeSyncStatus = 'idle';
   private enabled: boolean = false;
   private pollInterval: number | null = null;
-  private readonly POLL_INTERVAL_MS = 30000; // Check every 30 seconds
   private lastCheckTime: Date | null = null;
   private autoSyncOnChange: boolean = true; // Auto download when changes detected
 
@@ -68,9 +68,9 @@ class RealtimeSyncService {
     // Set up interval
     this.pollInterval = window.setInterval(() => {
       this.checkForRemoteChanges();
-    }, this.POLL_INTERVAL_MS);
+    }, POLL_INTERVAL_MS);
 
-    console.log(`Polling started: checking every ${this.POLL_INTERVAL_MS / 1000}s`);
+    console.log(`Polling started: checking every ${POLL_INTERVAL_MS / 1000}s`);
   }
 
   // Stop polling

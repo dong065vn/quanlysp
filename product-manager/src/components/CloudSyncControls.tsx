@@ -4,7 +4,7 @@ import { googleAuthService } from '../services/googleAuth';
 import { syncService, type SyncEvent } from '../services/syncService';
 import { storageService } from '../services/storage';
 import { toast } from './Toast';
-import { syncHistoryService } from './SyncHistory';
+import { syncHistoryService } from '../services/syncHistoryService';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface CloudSyncControlsProps {
