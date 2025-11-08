@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, ExternalLink, Upload as UploadIcon, Image as ImageIcon, Cloud } from 'lucide-react';
+import { X, Plus, Trash2, ExternalLink, Upload as UploadIcon, Image as ImageIcon, Cloud, ArrowLeft } from 'lucide-react';
 import type { Product, ProductStatus, ProductFormData, ProductLink } from '../types/product';
 import { storageService } from '../services/storage';
 import { googleAuthService } from '../services/googleAuth';
@@ -236,9 +236,11 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 rounded-xl transition-all duration-200 active:scale-95"
+            title="Quay về danh sách sản phẩm"
           >
-            <X size={24} className="text-gray-500" />
+            <ArrowLeft size={20} className="text-gray-600" />
+            <span className="text-sm font-medium text-gray-700 hidden sm:inline">Quay về</span>
           </button>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Cloud, Database, Clock, HardDrive, Settings, ChevronRight, History } from 'lucide-react';
+import { Cloud, Database, Clock, HardDrive, Settings, ChevronRight, History, ArrowLeft } from 'lucide-react';
 import { GoogleDriveConnect } from './GoogleDriveConnect';
 import { googleAuthService } from '../services/googleAuth';
 import { googleDriveService } from '../services/googleDrive';
@@ -116,9 +116,11 @@ export function DriveSettingsPanel({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-2xl leading-none"
+            className="flex items-center gap-2 px-4 py-2 hover:bg-white/80 rounded-xl transition-all duration-200 active:scale-95"
+            title="Quay về danh sách sản phẩm"
           >
-            ×
+            <ArrowLeft size={20} className="text-gray-600" />
+            <span className="text-sm font-medium text-gray-700 hidden sm:inline">Quay về</span>
           </button>
         </div>
 
