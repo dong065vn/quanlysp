@@ -102,7 +102,10 @@ export function DriveSettingsPanel({
                 <Cloud size={18} className="text-blue-600" />
                 Kết nối tài khoản
               </h4>
-              <GoogleDriveConnect onSyncComplete={onSyncComplete} />
+              <GoogleDriveConnect
+                onSyncComplete={onSyncComplete}
+                onConnectSuccess={onClose}
+              />
             </div>
 
             {isConnected && syncStatus && (

@@ -5,12 +5,14 @@ import { syncService, type SyncEvent } from '../services/syncService';
 import { realtimeSyncService } from '../services/realtimeSyncService';
 import { storageService } from '../services/storage';
 import { GoogleDrivePermissionsModal } from './GoogleDrivePermissionsModal';
+import { toast } from './Toast';
 
 interface GoogleDriveConnectProps {
   onSyncComplete?: () => void;
+  onConnectSuccess?: () => void;
 }
 
-export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) {
+export function GoogleDriveConnect({ onSyncComplete, onConnectSuccess }: GoogleDriveConnectProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -77,6 +79,16 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
       setIsConnected(true);
       setUser(googleAuthService.getCurrentUser());
       setShowPermissionsModal(false);
+
+      // Show success toast
+      toast.success('Kết nối thành công!', 'Đã liên kết với Google Drive. Dữ liệu sẽ được tự động đồng bộ.');
+
+      // Call success callback to close settings panel
+      if (onConnectSuccess) {
+        setTimeout(() => {
+          onConnectSuccess();
+        }, 500); // Small delay for better UX
+      }
     } catch (error) {
       console.error('Failed to connect to Google Drive:', error);
 
@@ -98,22 +110,31 @@ export function GoogleDriveConnect({ onSyncComplete }: GoogleDriveConnectProps) 
       }
 
       setErrorMessage(errorMsg);
+      toast.error('Kết nối thất bại', errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDisconnect = () => {
-    if (!confirm('Bạn có chắc chắn muốn ngắt kết nối với Google Drive?\n\nĐiều này sẽ:\n- Ngắt kết nối với tài khoản Google\n- Tắt tự động lưu\n- Tắt đồng bộ realtime\n- Dữ liệu local vẫn được giữ nguyên')) {
+    if (!confirm('Bạn có chắc chắn muốn ngắt kết nối với Google Drive?\n\nĐiều này sẽ:\n✗ Ngắt kết nối với tài khoản Google\n✗ Tắt tự động lưu\n✗ Tắt đồng bộ realtime\n✓ Dữ liệu local vẫn được giữ nguyên\n\nLưu ý: Bạn cần kết nối lại để tiếp tục sử dụng tính năng đồng bộ.')) {
       return;
     }
 
-    googleAuthService.signOut();
-    syncService.disableSync();
-    realtimeSyncService.disable();
-    storageService.disableDriveSync();
-    setIsConnected(false);
-    setUser(null);
+    try {
+      googleAuthService.signOut();
+      syncService.disableSync();
+      realtimeSyncService.disable();
+      storageService.disableDriveSync();
+      setIsConnected(false);
+      setUser(null);
+
+      // Show success toast
+      toast.info('Đã ngắt kết nối', 'Đã ngắt kết nối với Google Drive. Dữ liệu local vẫn được giữ nguyên.');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Lỗi khi ngắt kết nối', 'Có lỗi xảy ra khi ngắt kết nối. Vui lòng thử lại.');
+    }
   };
 
   if (!isConnected) {
