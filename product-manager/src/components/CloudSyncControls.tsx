@@ -176,11 +176,13 @@ export function CloudSyncControls({ products, onSyncComplete }: CloudSyncControl
       syncService.disableSync();
       storageService.disableDriveSync();
       setAutoSaveEnabled(false);
+      toast.info('Đã tắt Auto-save', 'Dữ liệu sẽ không tự động lưu lên Google Drive.');
     } else {
       // Enable auto-save
       syncService.enableSync();
       storageService.enableDriveSync();
       setAutoSaveEnabled(true);
+      toast.success('Đã bật Auto-save', 'Dữ liệu sẽ tự động lưu lên Google Drive khi có thay đổi.');
     }
   };
 
