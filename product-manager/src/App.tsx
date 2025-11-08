@@ -12,7 +12,8 @@ import { OnlineIndicator } from './components/OnlineIndicator';
 import { useConfirmDialog } from './components/ConfirmDialog';
 import type { Product } from './types/product';
 import { storageService } from './services/storage';
-import * as XLSX from 'xlsx';
+import { productService } from './services/productService';
+import { importExportService } from './services/importExportService';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,24 +53,9 @@ function App() {
     };
   }, []);
 
-  // Apply filters and search
+  // Apply filters and search using productService
   useEffect(() => {
-    let filtered = products;
-
-    // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(p => p.status === statusFilter);
-    }
-
-    // Search
-    if (searchQuery) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.categoryName?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
+    const filtered = productService.filterAndSearch(products, statusFilter, searchQuery);
     setFilteredProducts(filtered);
   }, [products, statusFilter, searchQuery]);
 
@@ -126,93 +112,44 @@ function App() {
   };
 
   const handleExport = () => {
-    const exportData = products.map(p => ({
-      'SKU': p.sku,
-      'Tên sản phẩm': p.name,
-      'Danh mục': p.categoryName || '',
-      'Giá': p.price,
-      'Giá sale': p.salePrice || '',
-      'Số lượng': p.stockQuantity,
-      'Trạng thái': p.status,
-      'Mô tả ngắn': p.shortDescription,
-      'Tags': p.tags.join(', '),
-      'Ngày tạo': new Date(p.createdAt).toLocaleDateString('vi-VN'),
-      'Cập nhật': new Date(p.updatedAt).toLocaleDateString('vi-VN'),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Products');
-    XLSX.writeFile(wb, `products-${Date.now()}.xlsx`);
+    try {
+      importExportService.exportToExcel(products);
+      toast.success('Export thành công!');
+    } catch (error) {
+      toast.error('Lỗi khi export file');
+      console.error('Export error:', error);
+    }
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+    try {
+      const categories = storageService.getCategories();
+      const importedProducts = await importExportService.importFromExcel(file, categories);
 
-        console.log('Imported data:', jsonData);
+      // Save imported products
+      importedProducts.forEach(product => {
+        storageService.addProduct(product);
+      });
 
-        // Map imported data to Product format
-        const importedProducts: Product[] = jsonData.map((row, index) => {
-          const categories = storageService.getCategories();
-          const category = categories.find(c => c.name === row['Danh mục']) || categories[0];
+      // Reload products
+      loadProducts();
 
-          return {
-            id: Date.now().toString() + index,
-            sku: row['SKU'] || `IMPORT-${Date.now()}-${index}`,
-            name: row['Tên sản phẩm'] || 'Sản phẩm chưa có tên',
-            slug: (row['Tên sản phẩm'] || '').toLowerCase().replace(/\s+/g, '-') || `product-${index}`,
-            description: row['Mô tả'] || '',
-            shortDescription: row['Mô tả ngắn'] || '',
-            categoryId: category.id,
-            categoryName: category.name,
-            price: Number(row['Giá']) || 0,
-            salePrice: row['Giá sale'] ? Number(row['Giá sale']) : undefined,
-            stockQuantity: Number(row['Số lượng']) || 0,
-            status: (row['Trạng thái'] as Product['status']) || 'draft',
-            images: [],
-            links: [],
-            tags: row['Tags'] ? row['Tags'].split(',').map((t: string) => t.trim()).filter((t: string) => t) : [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-        });
+      // Show success toast
+      toast.success(`Import thành công ${importedProducts.length} sản phẩm!`);
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Lỗi khi import file. Vui lòng kiểm tra lại định dạng file.');
+    }
 
-        // Save imported products
-        importedProducts.forEach(product => {
-          storageService.addProduct(product);
-        });
-
-        // Reload products
-        loadProducts();
-
-        // Show success toast
-        toast.success(`Import thành công ${importedProducts.length} sản phẩm!`);
-      } catch (error) {
-        console.error('Import error:', error);
-        toast.error('Lỗi khi import file. Vui lòng kiểm tra lại định dạng file.');
-      }
-    };
-    reader.readAsBinaryString(file);
+    // Reset file input
     event.target.value = '';
   };
 
-  // Calculate stats
-  const stats = {
-    total: products.length,
-    published: products.filter(p => p.status === 'published').length,
-    draft: products.filter(p => p.status === 'draft').length,
-    archived: products.filter(p => p.status === 'archived').length,
-  };
+  // Calculate stats using productService
+  const stats = productService.getStats(products);
 
   const handleCloseToast = (id: string) => {
     toast.remove(id);
