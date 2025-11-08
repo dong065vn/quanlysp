@@ -12,15 +12,23 @@ export function RealtimeSyncIndicator() {
 
   useEffect(() => {
     // Check connection status
-    const checkConnection = () => {
-      setIsConnected(googleAuthService.isAuthenticated());
+    setIsConnected(googleAuthService.isAuthenticated());
+
+    // Listen for auth state changes
+    const unsubscribeAuth = googleAuthService.addAuthListener((event) => {
+      console.log('Auth state changed in RealtimeSyncIndicator:', event.type, event.isAuthenticated);
+      setIsConnected(event.isAuthenticated);
+
+      // Disable realtime sync if disconnected
+      if (!event.isAuthenticated && isEnabled) {
+        realtimeSyncService.disable();
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
     };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [isEnabled]);
 
   useEffect(() => {
     // Update status

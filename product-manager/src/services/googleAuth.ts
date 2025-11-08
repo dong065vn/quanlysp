@@ -22,6 +22,16 @@ interface TokenResponse {
   error_description?: string;
 }
 
+// Event types for auth state changes
+export type AuthEventType = 'auth_changed' | 'sign_in' | 'sign_out';
+export interface AuthEvent {
+  type: AuthEventType;
+  isAuthenticated: boolean;
+  user: GoogleUser | null;
+}
+
+type AuthEventListener = (event: AuthEvent) => void;
+
 class GoogleAuthService {
   private tokenClient: TokenClient | null = null;
   private gapiInitialized = false;
@@ -29,6 +39,9 @@ class GoogleAuthService {
   private accessToken: string | null = null;
   private currentUser: GoogleUser | null = null;
   private tokenExpiry: number | null = null;
+
+  // Event listeners for auth state changes
+  private listeners: Set<AuthEventListener> = new Set();
 
   // LocalStorage keys for persistence
   private readonly STORAGE_KEYS = {
@@ -312,6 +325,10 @@ class GoogleAuthService {
           }
 
           await this.loadUserInfo();
+
+          // Notify all listeners that user signed in
+          this.notifyAuthChanged('sign_in');
+
           resolve(response.access_token);
         };
 
@@ -362,9 +379,63 @@ class GoogleAuthService {
     return this.currentUser;
   }
 
+  // Add event listener
+  addAuthListener(listener: AuthEventListener): () => void {
+    this.listeners.add(listener);
+
+    // Return unsubscribe function
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  // Notify all listeners of auth state change
+  private notifyAuthChanged(type: AuthEventType): void {
+    const event: AuthEvent = {
+      type,
+      isAuthenticated: this.isAuthenticated(),
+      user: this.currentUser,
+    };
+
+    this.listeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('Error in auth listener:', error);
+      }
+    });
+  }
+
   // Check if user is authenticated
+  // Fixed: More reliable check without depending on window.gapi.client.getToken()
   isAuthenticated(): boolean {
-    return !!this.accessToken && !!window.gapi?.client?.getToken();
+    // Check if we have a valid token
+    if (!this.accessToken) {
+      return false;
+    }
+
+    // Check if token is not expired
+    if (!this.isTokenValid()) {
+      // Token expired, clear it
+      this.clearTokenStorage();
+      this.accessToken = null;
+      this.currentUser = null;
+      this.tokenExpiry = null;
+      return false;
+    }
+
+    // Additional check: ensure gapi client has token set
+    if (window.gapi?.client) {
+      const gapiToken = window.gapi.client.getToken();
+      if (!gapiToken) {
+        // Try to set token again if we have it
+        window.gapi.client.setToken({
+          access_token: this.accessToken,
+        });
+      }
+    }
+
+    return true;
   }
 
   // Get access token
@@ -386,6 +457,9 @@ class GoogleAuthService {
     // Clear token from localStorage
     this.clearTokenStorage();
     console.log('Signed out and cleared session');
+
+    // Notify listeners
+    this.notifyAuthChanged('sign_out');
   }
 
   // Initialize everything
@@ -394,7 +468,12 @@ class GoogleAuthService {
     this.initializeGis();
 
     // Try to restore previous session
-    await this.restoreSession();
+    const restored = await this.restoreSession();
+
+    // Notify listeners if session was restored
+    if (restored) {
+      this.notifyAuthChanged('sign_in');
+    }
   }
 }
 

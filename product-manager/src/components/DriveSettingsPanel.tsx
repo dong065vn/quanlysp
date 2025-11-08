@@ -26,8 +26,36 @@ export function DriveSettingsPanel({
   useEffect(() => {
     if (isOpen) {
       updateStats();
-      const interval = setInterval(updateStats, 2000);
-      return () => clearInterval(interval);
+
+      // Listen for auth state changes
+      const unsubscribe = googleAuthService.addAuthListener((event) => {
+        console.log('Auth state changed in DriveSettingsPanel:', event.type, event.isAuthenticated);
+        setIsConnected(event.isAuthenticated);
+        if (event.isAuthenticated) {
+          const status = googleDriveService.getSyncStatus();
+          setSyncStatus(status);
+        }
+      });
+
+      // Update stats periodically (but less frequently - only for storage stats)
+      const interval = setInterval(() => {
+        // Only update storage stats, not auth state
+        const products = storageService.getProducts();
+        setLocalProductCount(products.length);
+
+        try {
+          const allStorage = JSON.stringify(localStorage);
+          const sizeInBytes = new Blob([allStorage]).size;
+          setLocalStorageSize(sizeInBytes);
+        } catch (error) {
+          console.error('Failed to calculate storage size:', error);
+        }
+      }, 5000); // Reduced frequency to 5 seconds
+
+      return () => {
+        unsubscribe();
+        clearInterval(interval);
+      };
     }
   }, [isOpen]);
 
