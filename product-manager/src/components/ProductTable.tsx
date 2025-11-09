@@ -11,8 +11,7 @@ import {
 } from '@tanstack/react-table';
 import { Eye, Pencil, Trash2, Package, ExternalLink, Share2 } from 'lucide-react';
 import type { Product, ProductStatus } from '../types/product';
-import { shareableLinkService } from '../services/shareableLinkService';
-import { toast } from './Toast';
+import { ShareDialog } from './ShareDialog';
 
 interface ProductTableProps {
   products: Product[];
@@ -81,26 +80,10 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
+  const [sharingProduct, setSharingProduct] = useState<Product | null>(null);
 
   const handleShare = (product: Product) => {
-    // Tạo shareable link với cấu hình mặc định (cho phép click vào ProductLinks)
-    const shareableLink = shareableLinkService.createShareableLink(product.id, {
-      allowProductLinks: true, // Quan trọng: cho phép click vào links
-      showPrice: true,
-      showStock: true,
-      showDescription: true,
-      showImages: true,
-      showTags: true,
-    });
-
-    // Lấy URL và copy vào clipboard
-    const url = shareableLinkService.getShareableURL(shareableLink.token);
-
-    navigator.clipboard.writeText(url).then(() => {
-      toast.success('✅ Đã copy link chia sẻ vào clipboard!');
-    }).catch(() => {
-      toast.error('❌ Không thể copy link. Vui lòng thử lại.');
-    });
+    setSharingProduct(product);
   };
 
   const columns = useMemo(
@@ -236,34 +219,34 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         id: 'actions',
         header: 'Thao tác',
         cell: ({ row }) => (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1 sm:gap-1.5 flex-wrap sm:flex-nowrap">
             <button
               onClick={() => onView(row.original)}
-              className="p-2 hover:bg-primary-50 rounded-lg transition-all duration-200 group active:scale-95"
+              className="p-1.5 sm:p-2 hover:bg-primary-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Xem"
             >
-              <Eye size={16} className="text-gray-500 group-hover:text-primary-600 transition-colors" />
+              <Eye size={14} className="sm:w-4 sm:h-4 text-gray-500 group-hover:text-primary-600 transition-colors" />
             </button>
             <button
               onClick={() => onEdit(row.original)}
-              className="p-2 hover:bg-info-50 rounded-lg transition-all duration-200 group active:scale-95"
+              className="p-1.5 sm:p-2 hover:bg-info-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Sửa"
             >
-              <Pencil size={16} className="text-gray-500 group-hover:text-info-600 transition-colors" />
+              <Pencil size={14} className="sm:w-4 sm:h-4 text-gray-500 group-hover:text-info-600 transition-colors" />
             </button>
             <button
               onClick={() => handleShare(row.original)}
-              className="p-2 hover:bg-success-50 rounded-lg transition-all duration-200 group active:scale-95"
+              className="p-1.5 sm:p-2 hover:bg-success-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Chia sẻ"
             >
-              <Share2 size={16} className="text-gray-500 group-hover:text-success-600 transition-colors" />
+              <Share2 size={14} className="sm:w-4 sm:h-4 text-gray-500 group-hover:text-success-600 transition-colors" />
             </button>
             <button
               onClick={() => onDelete(row.original.id)}
-              className="p-2 hover:bg-danger-50 rounded-lg transition-all duration-200 group active:scale-95"
+              className="p-1.5 sm:p-2 hover:bg-danger-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Xóa"
             >
-              <Trash2 size={16} className="text-gray-500 group-hover:text-danger-600 transition-colors" />
+              <Trash2 size={14} className="sm:w-4 sm:h-4 text-gray-500 group-hover:text-danger-600 transition-colors" />
             </button>
           </div>
         ),
@@ -290,58 +273,68 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
   });
 
   return (
-    <div className="w-full h-full relative">
-      <div className="overflow-auto h-full">
-        <table className="w-full border-collapse">
-          <thead className="bg-gradient-to-b from-gray-50 to-gray-100/50 sticky top-0 z-10 border-b-2 border-gray-200">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-200/50 bg-gradient-to-b from-gray-50 to-gray-100/50"
-                    style={{ width: header.getSize() }}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {table.getRowModel().rows.map((row, index) => (
-              <tr
-                key={row.id}
-                className="hover:bg-gradient-to-r hover:from-primary-50/50 hover:to-transparent transition-all duration-200 group animate-slide-up"
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-4 text-sm border-r border-gray-100 group-hover:border-primary-100 transition-colors">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <>
+      <div className="w-full h-full relative">
+        <div className="overflow-auto h-full">
+          <table className="w-full border-collapse min-w-[800px]">
+            <thead className="bg-gradient-to-b from-gray-50 to-gray-100/50 sticky top-0 z-10 border-b-2 border-gray-200">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="px-2 sm:px-4 py-3 sm:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-200/50 bg-gradient-to-b from-gray-50 to-gray-100/50"
+                      style={{ width: header.getSize() }}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {table.getRowModel().rows.map((row, index) => (
+                <tr
+                  key={row.id}
+                  className="hover:bg-gradient-to-r hover:from-primary-50/50 hover:to-transparent transition-all duration-200 group animate-slide-up"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm border-r border-gray-100 group-hover:border-primary-100 transition-colors">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       {products.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
-          <div className="text-center text-gray-500 p-8 animate-fade-in">
-            <div className="mb-6 inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl shadow-lg">
-              <Package size={48} className="text-gray-400" />
+          <div className="text-center text-gray-500 p-4 sm:p-8 animate-fade-in">
+            <div className="mb-4 sm:mb-6 inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl shadow-lg">
+              <Package size={40} className="sm:w-12 sm:h-12 text-gray-400" />
             </div>
-            <p className="text-xl font-bold text-gray-700 mb-2">Chưa có sản phẩm nào</p>
-            <p className="text-sm text-gray-500 mb-6">Bắt đầu thêm sản phẩm đầu tiên của bạn</p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-sm font-medium">
+            <p className="text-lg sm:text-xl font-bold text-gray-700 mb-2">Chưa có sản phẩm nào</p>
+            <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">Bắt đầu thêm sản phẩm đầu tiên của bạn</p>
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary-100 text-primary-700 rounded-lg text-xs sm:text-sm font-medium">
               <span>💡</span>
-              <span>Nhấn nút "Thêm sản phẩm" ở thanh công cụ</span>
+              <span className="hidden sm:inline">Nhấn nút "Thêm sản phẩm" ở thanh công cụ</span>
+              <span className="sm:hidden">Nhấn "Thêm sản phẩm"</span>
             </div>
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        isOpen={sharingProduct !== null}
+        onClose={() => setSharingProduct(null)}
+        product={sharingProduct!}
+      />
+    </>
   );
 }
