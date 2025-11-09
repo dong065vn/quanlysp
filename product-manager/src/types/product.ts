@@ -63,3 +63,23 @@ export interface ProductFormData {
   metaDescription?: string;
   tags: string[];
 }
+
+export interface ShareableLink {
+  id: string;
+  productId: string;
+  token: string;
+  expiresAt?: string;
+  viewCount: number;
+  createdAt: string;
+  createdBy?: string;
+  settings: ShareableLinkSettings;
+}
+
+export interface ShareableLinkSettings {
+  allowProductLinks: boolean; // Cho phép click vào ProductLink
+  showPrice: boolean;
+  showStock: boolean;
+  showDescription: boolean;
+  showImages: boolean;
+  showTags: boolean;
+}
