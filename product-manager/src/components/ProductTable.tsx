@@ -9,8 +9,10 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Package, ExternalLink } from 'lucide-react';
+import { Eye, Pencil, Trash2, Package, ExternalLink, Share2 } from 'lucide-react';
 import type { Product, ProductStatus } from '../types/product';
+import { shareableLinkService } from '../services/shareableLinkService';
+import { toast } from './Toast';
 
 interface ProductTableProps {
   products: Product[];
@@ -79,6 +81,27 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
+
+  const handleShare = (product: Product) => {
+    // Tạo shareable link với cấu hình mặc định (cho phép click vào ProductLinks)
+    const shareableLink = shareableLinkService.createShareableLink(product.id, {
+      allowProductLinks: true, // Quan trọng: cho phép click vào links
+      showPrice: true,
+      showStock: true,
+      showDescription: true,
+      showImages: true,
+      showTags: true,
+    });
+
+    // Lấy URL và copy vào clipboard
+    const url = shareableLinkService.getShareableURL(shareableLink.token);
+
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('✅ Đã copy link chia sẻ vào clipboard!');
+    }).catch(() => {
+      toast.error('❌ Không thể copy link. Vui lòng thử lại.');
+    });
+  };
 
   const columns = useMemo(
     () => [
@@ -229,6 +252,13 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
               <Pencil size={16} className="text-gray-500 group-hover:text-info-600 transition-colors" />
             </button>
             <button
+              onClick={() => handleShare(row.original)}
+              className="p-2 hover:bg-success-50 rounded-lg transition-all duration-200 group active:scale-95"
+              title="Chia sẻ"
+            >
+              <Share2 size={16} className="text-gray-500 group-hover:text-success-600 transition-colors" />
+            </button>
+            <button
               onClick={() => onDelete(row.original.id)}
               className="p-2 hover:bg-danger-50 rounded-lg transition-all duration-200 group active:scale-95"
               title="Xóa"
@@ -237,10 +267,10 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
             </button>
           </div>
         ),
-        size: 130,
+        size: 165,
       }),
     ],
-    [onEdit, onDelete, onView]
+    [onEdit, onDelete, onView, handleShare]
   );
 
   const table = useReactTable({

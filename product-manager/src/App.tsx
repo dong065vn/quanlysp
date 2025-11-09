@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Download, Upload, Search, Settings, Menu, X } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
+import { ProductViewer } from './components/ProductViewer';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { CloudSyncControls } from './components/CloudSyncControls';
 import { RealtimeSyncIndicator } from './components/RealtimeSyncIndicator';
@@ -10,10 +11,11 @@ import { DriveSettingsPanel } from './components/DriveSettingsPanel';
 import { SyncHistory } from './components/SyncHistory';
 import { OnlineIndicator } from './components/OnlineIndicator';
 import { useConfirmDialog } from './components/ConfirmDialog';
-import type { Product } from './types/product';
+import type { Product, ShareableLink } from './types/product';
 import { storageService } from './services/storage';
 import { productService } from './services/productService';
 import { importExportService } from './services/importExportService';
+import { shareableLinkService } from './services/shareableLinkService';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,10 +30,36 @@ function App() {
   const [showSyncHistory, setShowSyncHistory] = useState(false);
   const { confirm: confirmDelete, DialogComponent: DeleteConfirmDialog } = useConfirmDialog();
 
+  // View-only mode states
+  const [isViewOnlyMode, setIsViewOnlyMode] = useState(false);
+  const [sharedProduct, setSharedProduct] = useState<Product | null>(null);
+  const [shareableLink, setShareableLink] = useState<ShareableLink | null>(null);
+
   // Load products on mount
   useEffect(() => {
     storageService.initializeSampleData();
     loadProducts();
+
+    // Check if we're in view-only mode (shareable link)
+    const token = shareableLinkService.getTokenFromURL();
+    if (token) {
+      // Load products first
+      const allProducts = storageService.getProducts();
+      const link = shareableLinkService.getShareableLinkByToken(token);
+
+      if (link) {
+        const product = allProducts.find(p => p.id === link.productId);
+        if (product) {
+          setIsViewOnlyMode(true);
+          setSharedProduct(product);
+          setShareableLink(link);
+        } else {
+          toast.error('❌ Sản phẩm không tồn tại');
+        }
+      } else {
+        toast.error('❌ Link chia sẻ không hợp lệ hoặc đã hết hạn');
+      }
+    }
 
     // Listen for product updates from sync
     const handleProductsUpdate = (event: CustomEvent) => {
@@ -154,6 +182,32 @@ function App() {
   const handleCloseToast = (id: string) => {
     toast.remove(id);
   };
+
+  const handleExitViewOnlyMode = () => {
+    // Remove share token from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('share');
+    window.history.pushState({}, '', url.toString());
+
+    // Reset view-only mode states
+    setIsViewOnlyMode(false);
+    setSharedProduct(null);
+    setShareableLink(null);
+  };
+
+  // If in view-only mode, render ProductViewer instead
+  if (isViewOnlyMode && sharedProduct && shareableLink) {
+    return (
+      <>
+        <ProductViewer
+          product={sharedProduct}
+          shareableLink={shareableLink}
+          onClose={handleExitViewOnlyMode}
+        />
+        <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex flex-col">
