@@ -11,7 +11,7 @@ import {
 } from '@tanstack/react-table';
 import { Eye, Pencil, Trash2, Package, ExternalLink, Share2 } from 'lucide-react';
 import type { Product, ProductStatus } from '../types/product';
-import { ShareDialog } from './ShareDialog';
+import { ShareDialog } from '../features/shareLink';
 
 interface ProductTableProps {
   products: Product[];
