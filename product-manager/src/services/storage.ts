@@ -1,4 +1,4 @@
-import type { Product, Category } from '../types/product';
+import type { Product, Category, ContactInfo } from '../types/product';
 import { googleAuthService } from './googleAuth';
 import { syncService } from './syncService';
 
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   PRODUCTS: 'products',
   CATEGORIES: 'categories',
   DRIVE_SYNC_ENABLED: 'driveSyncEnabled',
+  CONTACT_INFO: 'contactInfo',
 };
 
 class StorageService {
@@ -157,6 +158,32 @@ class StorageService {
 
   isDriveSyncEnabled(): boolean {
     return this.autoSyncEnabled;
+  }
+
+  // Contact Info
+  getContactInfo(): ContactInfo {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CONTACT_INFO);
+      return data ? JSON.parse(data) : this.getDefaultContactInfo();
+    } catch (error) {
+      console.error('Error loading contact info:', error);
+      return this.getDefaultContactInfo();
+    }
+  }
+
+  saveContactInfo(contactInfo: ContactInfo): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CONTACT_INFO, JSON.stringify(contactInfo));
+    } catch (error) {
+      console.error('Error saving contact info:', error);
+    }
+  }
+
+  private getDefaultContactInfo(): ContactInfo {
+    return {
+      socialLinks: [],
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   // Initialize with sample data

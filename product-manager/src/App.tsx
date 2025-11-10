@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Search, Settings, Menu, X, ExternalLink } from 'lucide-react';
+import { Plus, Download, Upload, Search, Settings, Menu, X, ExternalLink, Phone } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import { ProductViewer } from './components/ProductViewer';
@@ -10,6 +10,7 @@ import { CloudSyncControls } from './components/CloudSyncControls';
 import { RealtimeSyncIndicator } from './components/RealtimeSyncIndicator';
 import { ToastContainer, toast, type ToastMessage } from './components/Toast';
 import { DriveSettingsPanel } from './components/DriveSettingsPanel';
+import { ContactSettings } from './components/ContactSettings';
 import { SyncHistory } from './components/SyncHistory';
 import { OnlineIndicator } from './components/OnlineIndicator';
 import { useConfirmDialog } from './components/ConfirmDialog';
@@ -27,6 +28,7 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDriveSettings, setShowDriveSettings] = useState(false);
+  const [showContactSettings, setShowContactSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [showSyncHistory, setShowSyncHistory] = useState(false);
@@ -299,6 +301,15 @@ function App() {
             {/* Realtime Sync Indicator */}
             <RealtimeSyncIndicator />
 
+            {/* Contact Settings Toggle */}
+            <button
+              onClick={() => setShowContactSettings(!showContactSettings)}
+              className="p-2.5 hover:bg-green-50 text-gray-600 hover:text-green-600 rounded-xl transition-all duration-200 hover:shadow-md active:scale-95"
+              title="Thông tin liên hệ"
+            >
+              <Phone size={20} />
+            </button>
+
             {/* Google Drive Settings Toggle */}
             <button
               onClick={() => setShowDriveSettings(!showDriveSettings)}
@@ -399,6 +410,12 @@ function App() {
           onClose={() => setShowDriveSettings(false)}
           onSyncComplete={handleSyncComplete}
           onOpenSyncHistory={() => setShowSyncHistory(true)}
+        />
+
+        {/* Contact Settings Panel */}
+        <ContactSettings
+          isOpen={showContactSettings}
+          onClose={() => setShowContactSettings(false)}
         />
       </header>
 

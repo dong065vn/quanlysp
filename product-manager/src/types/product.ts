@@ -100,3 +100,20 @@ export interface ProductComment {
   updatedAt?: string;
   parentId?: string; // Cho phép reply comment
 }
+
+export interface SocialLink {
+  id: string;
+  platform: 'facebook' | 'zalo' | 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'telegram' | 'whatsapp' | 'line' | 'linkedin' | 'website' | 'email' | 'phone';
+  url: string;
+  label?: string;
+  isActive: boolean;
+}
+
+export interface ContactInfo {
+  businessName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  socialLinks: SocialLink[];
+  updatedAt: string;
+}
