@@ -5,6 +5,8 @@ import { CommentSection } from '../../comment';
 import { ContactModal } from '../../../components/ContactButtons';
 import { storageService } from '../../../services/storage';
 import { toast } from '../../../components/Toast';
+import { useReadOnlyGuard } from '../../../hooks/useReadOnlyGuard';
+import { ViewOnlyBanner, MobileViewOnlyNotice } from './ViewOnlyBanner';
 
 interface ProductViewerProps {
   product: Product;
@@ -19,7 +21,16 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
   const [showContactModal, setShowContactModal] = useState(false);
   const contactInfo = storageService.getContactInfo();
 
-  const handleSaveEdit = () => {
+  // Read-Only Guard: Đảm bảo không có write operations khi ở view/comment mode
+  const { canEdit, guardWrite } = useReadOnlyGuard({
+    permission: settings.permission,
+    onViolation: () => {
+      toast.error('⚠️ Bạn không có quyền thực hiện thao tác này');
+    },
+  });
+
+  // Guard save operation - chỉ cho phép khi có quyền edit
+  const handleSaveEdit = guardWrite(() => {
     try {
       const products = storageService.getProducts();
       const index = products.findIndex(p => p.id === editedProduct.id);
@@ -34,7 +45,7 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
     } catch (error) {
       toast.error('❌ Không thể lưu thay đổi');
     }
-  };
+  });
 
   const handleCancelEdit = () => {
     setEditedProduct(product);
@@ -146,7 +157,7 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {getPermissionBadge()}
-              {settings.permission === 'edit' && !isEditing && (
+              {canEdit && !isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg text-xs font-medium transition-all duration-200"
@@ -184,6 +195,9 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
 
       {/* Main Content */}
       <main className="px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-6xl mx-auto">
+        {/* View-Only Banner */}
+        <ViewOnlyBanner permission={settings.permission} className="mb-4 sm:mb-6" />
+
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           {/* Product Header */}
           <div className="p-4 sm:p-6 lg:p-8 border-b border-gray-200">
@@ -469,6 +483,9 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
         onClose={() => setShowContactModal(false)}
         contactInfo={contactInfo}
       />
+
+      {/* Mobile View-Only Notice - Sticky bottom on mobile */}
+      <MobileViewOnlyNotice permission={settings.permission} />
     </div>
   );
 }

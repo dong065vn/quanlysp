@@ -6,6 +6,8 @@ import { ProductInfoDialog } from '../../../components/ProductInfoDialog';
 import { CommentSection } from '../../comment';
 import { storageService } from '../../../services/storage';
 import { toast } from '../../../components/Toast';
+import { useReadOnlyGuard } from '../../../hooks/useReadOnlyGuard';
+import { ViewOnlyBanner, MobileViewOnlyNotice } from './ViewOnlyBanner';
 
 interface SheetViewerProps {
   products: Product[];
@@ -21,6 +23,14 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editedProduct, setEditedProduct] = useState<Product | null>(null);
 
+  // Read-Only Guard: Đảm bảo không có write operations khi ở view/comment mode
+  const { canEdit, guardWrite } = useReadOnlyGuard({
+    permission: settings.permission,
+    onViolation: () => {
+      toast.error('⚠️ Bạn không có quyền thực hiện thao tác này');
+    },
+  });
+
   const filteredProducts = products.filter(product => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -35,7 +45,8 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
     setEditedProduct(product);
   };
 
-  const handleSaveProduct = () => {
+  // Guard save operation - chỉ cho phép khi có quyền edit
+  const handleSaveProduct = guardWrite(() => {
     if (!editedProduct) return;
 
     try {
@@ -52,7 +63,7 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
     } catch (error) {
       toast.error('❌ Không thể lưu thay đổi');
     }
-  };
+  });
 
   const handleCancelEdit = () => {
     setEditingProductId(null);
@@ -61,14 +72,15 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
 
   const handleOpenModal = (product: Product) => {
     setSelectedProduct(product);
-    if (settings.permission === 'edit') {
+    if (canEdit) {
       setIsEditing(true);
     } else {
       setIsEditing(false);
     }
   };
 
-  const handleSaveModal = (updatedProduct: Product) => {
+  // Guard modal save operation
+  const handleSaveModal = guardWrite((updatedProduct: Product) => {
     try {
       const allProducts = storageService.getProducts();
       const index = allProducts.findIndex(p => p.id === updatedProduct.id);
@@ -82,7 +94,7 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
     } catch (error) {
       toast.error('❌ Không thể lưu thay đổi');
     }
-  };
+  });
 
   const getPermissionBadge = () => {
     const permissionConfig = {
@@ -184,6 +196,9 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
 
       {/* Main Content - Mobile Optimized */}
       <main className="px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-7xl mx-auto pb-safe">
+        {/* View-Only Banner */}
+        <ViewOnlyBanner permission={settings.permission} className="mb-4 sm:mb-6" />
+
         {/* Products Grid - Responsive & Touch-Friendly */}
         <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {filteredProducts.map((product) => (
@@ -337,7 +352,7 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
 
       {/* Product Modal/Dialog */}
       {selectedProduct && (
-        settings.permission === 'edit' ? (
+        canEdit ? (
           <ProductModal
             isOpen={true}
             onClose={() => setSelectedProduct(null)}
@@ -353,6 +368,9 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
           />
         )
       )}
+
+      {/* Mobile View-Only Notice - Sticky bottom on mobile */}
+      <MobileViewOnlyNotice permission={settings.permission} />
     </div>
   );
 }

@@ -18,3 +18,9 @@ export {
   useCommentTime,
   useCommentAuthor,
 } from './useComment';
+
+// Read-Only Guard Hooks
+export {
+  useReadOnlyGuard,
+  usePermissionBadge,
+} from './useReadOnlyGuard';
