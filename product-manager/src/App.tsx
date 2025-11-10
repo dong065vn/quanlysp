@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Search, Settings, Menu, X } from 'lucide-react';
+import { Plus, Download, Upload, Search, Settings, Menu, X, ExternalLink } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import { ProductViewer } from './components/ProductViewer';
+import { SheetViewer } from './components/SheetViewer';
+import { SheetShareDialog } from './components/SheetShareDialog';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { CloudSyncControls } from './components/CloudSyncControls';
 import { RealtimeSyncIndicator } from './components/RealtimeSyncIndicator';
@@ -28,6 +30,7 @@ function App() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [showSyncHistory, setShowSyncHistory] = useState(false);
+  const [showSheetShareDialog, setShowSheetShareDialog] = useState(false);
   const { confirm: confirmDelete, DialogComponent: DeleteConfirmDialog } = useConfirmDialog();
 
   // View-only mode states
@@ -48,13 +51,20 @@ function App() {
       const link = shareableLinkService.getShareableLinkByToken(token);
 
       if (link) {
-        const product = allProducts.find(p => p.id === link.productId);
-        if (product) {
-          setIsViewOnlyMode(true);
-          setSharedProduct(product);
-          setShareableLink(link);
-        } else {
-          toast.error('❌ Sản phẩm không tồn tại');
+        setIsViewOnlyMode(true);
+        setShareableLink(link);
+
+        // Check if it's a product or sheet share
+        if (link.type === 'product') {
+          const product = allProducts.find(p => p.id === link.productId);
+          if (product) {
+            setSharedProduct(product);
+          } else {
+            toast.error('❌ Sản phẩm không tồn tại');
+          }
+        } else if (link.type === 'sheet') {
+          // For sheet share, we don't need a specific product
+          setProducts(allProducts);
         }
       } else {
         toast.error('❌ Link chia sẻ không hợp lệ hoặc đã hết hạn');
@@ -195,18 +205,35 @@ function App() {
     setShareableLink(null);
   };
 
-  // If in view-only mode, render ProductViewer instead
-  if (isViewOnlyMode && sharedProduct && shareableLink) {
-    return (
-      <>
-        <ProductViewer
-          product={sharedProduct}
-          shareableLink={shareableLink}
-          onClose={handleExitViewOnlyMode}
-        />
-        <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
-      </>
-    );
+  // If in view-only mode, render appropriate viewer
+  if (isViewOnlyMode && shareableLink) {
+    // Sheet share - show all products
+    if (shareableLink.type === 'sheet') {
+      return (
+        <>
+          <SheetViewer
+            products={products}
+            shareableLink={shareableLink}
+            onClose={handleExitViewOnlyMode}
+          />
+          <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
+        </>
+      );
+    }
+
+    // Product share - show single product
+    if (shareableLink.type === 'product' && sharedProduct) {
+      return (
+        <>
+          <ProductViewer
+            product={sharedProduct}
+            shareableLink={shareableLink}
+            onClose={handleExitViewOnlyMode}
+          />
+          <ToastContainer messages={toastMessages} onClose={handleCloseToast} />
+        </>
+      );
+    }
   }
 
   return (
@@ -318,6 +345,18 @@ function App() {
                 <span className="hidden sm:inline">Export</span>
                 <span className="sm:hidden">📤</span>
               </button>
+
+              <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block"></div>
+
+              <button
+                onClick={() => setShowSheetShareDialog(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl active:scale-95"
+                title="Chia sẻ toàn bộ danh sách sản phẩm"
+              >
+                <ExternalLink size={16} />
+                <span className="hidden sm:inline">Share Sheet</span>
+                <span className="sm:hidden">🔗</span>
+              </button>
             </div>
 
             {/* Spacer */}
@@ -393,6 +432,13 @@ function App() {
       <SyncHistory
         isOpen={showSyncHistory}
         onClose={() => setShowSyncHistory(false)}
+      />
+
+      {/* Sheet Share Dialog */}
+      <SheetShareDialog
+        isOpen={showSheetShareDialog}
+        onClose={() => setShowSheetShareDialog(false)}
+        productCount={products.length}
       />
 
       {/* Online/Offline Indicator */}

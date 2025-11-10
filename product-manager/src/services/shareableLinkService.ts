@@ -1,9 +1,9 @@
-import type { ShareableLink, ShareableLinkSettings, Product } from '../types/product';
+import type { ShareableLink, ShareableLinkSettings, Product, ShareType } from '../types/product';
 
 const STORAGE_KEY = 'shareable_links';
 
 /**
- * Service quản lý các shareable links cho sản phẩm
+ * Service quản lý các shareable links cho sản phẩm và sheet
  */
 class ShareableLinkService {
   /**
@@ -38,7 +38,41 @@ class ShareableLinkService {
 
     const shareableLink: ShareableLink = {
       id: `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'product',
       productId,
+      token: this.generateToken(),
+      viewCount: 0,
+      createdAt: new Date().toISOString(),
+      settings: { ...defaultSettings, ...settings },
+    };
+
+    // Lưu vào storage
+    const links = this.getAllShareableLinks();
+    links.push(shareableLink);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+
+    return shareableLink;
+  }
+
+  /**
+   * Tạo shareable link cho toàn bộ sheet (danh sách sản phẩm)
+   */
+  createSheetShareableLink(
+    settings?: Partial<ShareableLinkSettings>
+  ): ShareableLink {
+    const defaultSettings: ShareableLinkSettings = {
+      permission: 'view', // Mặc định là chế độ chỉ xem
+      allowProductLinks: true,
+      showPrice: true,
+      showStock: true,
+      showDescription: true,
+      showImages: true,
+      showTags: true,
+    };
+
+    const shareableLink: ShareableLink = {
+      id: `sheet_share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'sheet',
       token: this.generateToken(),
       viewCount: 0,
       createdAt: new Date().toISOString(),

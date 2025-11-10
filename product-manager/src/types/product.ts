@@ -64,9 +64,12 @@ export interface ProductFormData {
   tags: string[];
 }
 
+export type ShareType = 'product' | 'sheet';
+
 export interface ShareableLink {
   id: string;
-  productId: string;
+  type: ShareType; // 'product' = share 1 sản phẩm, 'sheet' = share toàn bộ danh sách
+  productId?: string; // Chỉ có khi type = 'product'
   token: string;
   expiresAt?: string;
   viewCount: number;
