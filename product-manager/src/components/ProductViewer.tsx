@@ -1,5 +1,9 @@
-import { ExternalLink, Package, Tag, DollarSign, Box, ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { ExternalLink, Package, Tag, DollarSign, Box, ArrowLeft, Eye, MessageSquare, Edit as EditIcon, Save, X } from 'lucide-react';
 import type { Product, ShareableLink } from '../types/product';
+import { CommentSection } from './CommentSection';
+import { storageService } from '../services/storage';
+import { toast } from './Toast';
 
 interface ProductViewerProps {
   product: Product;
@@ -9,6 +13,63 @@ interface ProductViewerProps {
 
 export function ProductViewer({ product, shareableLink, onClose }: ProductViewerProps) {
   const { settings } = shareableLink;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProduct, setEditedProduct] = useState<Product>(product);
+
+  const handleSaveEdit = () => {
+    try {
+      const products = storageService.getProducts();
+      const index = products.findIndex(p => p.id === editedProduct.id);
+      if (index !== -1) {
+        products[index] = { ...editedProduct, updatedAt: new Date().toISOString() };
+        storageService.saveProducts(products);
+        toast.success('✅ Đã lưu thay đổi!');
+        setIsEditing(false);
+        // Reload page to show updated data
+        window.location.reload();
+      }
+    } catch (error) {
+      toast.error('❌ Không thể lưu thay đổi');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedProduct(product);
+    setIsEditing(false);
+  };
+
+  const getPermissionBadge = () => {
+    const permissionConfig = {
+      view: {
+        icon: <Eye size={14} />,
+        label: 'Chỉ xem',
+        color: 'bg-blue-50 text-blue-600',
+        emoji: '👁️',
+      },
+      comment: {
+        icon: <MessageSquare size={14} />,
+        label: 'Nhận xét',
+        color: 'bg-green-50 text-green-600',
+        emoji: '💬',
+      },
+      edit: {
+        icon: <EditIcon size={14} />,
+        label: 'Chỉnh sửa',
+        color: 'bg-orange-50 text-orange-600',
+        emoji: '✏️',
+      },
+    };
+
+    const config = permissionConfig[settings.permission];
+
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${config.color}`}>
+        <span className="hidden sm:inline">{config.emoji}</span>
+        {config.icon}
+        <span>{config.label}</span>
+      </span>
+    );
+  };
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { bg: string; text: string; label: string; icon: string }> = {
@@ -72,18 +133,43 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
               )}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <span className="text-base sm:text-xl">👁️</span>
+                  <span className="text-base sm:text-xl">📦</span>
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">Xem sản phẩm</h1>
-                  <p className="text-xs text-gray-500 hidden sm:block">Chế độ chỉ xem</p>
+                  <p className="text-xs text-gray-500 hidden sm:block">Link chia sẻ</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <span className="hidden sm:inline-flex px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium">
-                🔗 Shared Link
-              </span>
+              {getPermissionBadge()}
+              {settings.permission === 'edit' && !isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg text-xs font-medium transition-all duration-200"
+                >
+                  <EditIcon size={14} />
+                  <span className="hidden xs:inline sm:inline">Chỉnh sửa</span>
+                </button>
+              )}
+              {isEditing && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-all duration-200"
+                  >
+                    <Save size={14} />
+                    <span className="hidden sm:inline">Lưu</span>
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg text-xs font-medium transition-all duration-200"
+                  >
+                    <X size={14} />
+                    <span className="hidden sm:inline">Hủy</span>
+                  </button>
+                </div>
+              )}
               <span className="px-2 sm:px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
                 <span className="hidden sm:inline">👁️ {shareableLink.viewCount} views</span>
                 <span className="sm:hidden">👁️ {shareableLink.viewCount}</span>
@@ -100,7 +186,16 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
           <div className="p-4 sm:p-6 lg:p-8 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row items-start gap-4 mb-4">
               <div className="flex-1 w-full min-w-0">
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 break-words">{product.name}</h2>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editedProduct.name}
+                    onChange={(e) => setEditedProduct({ ...editedProduct, name: e.target.value })}
+                    className="w-full text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                ) : (
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 break-words">{product.name}</h2>
+                )}
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 sm:px-3 py-1 rounded-lg font-mono">
                     SKU: {product.sku}
@@ -120,8 +215,17 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
               )}
             </div>
 
-            {product.shortDescription && settings.showDescription && (
-              <p className="text-gray-600 text-sm sm:text-base lg:text-lg mt-3 sm:mt-4">{product.shortDescription}</p>
+            {settings.showDescription && (
+              isEditing ? (
+                <textarea
+                  value={editedProduct.shortDescription}
+                  onChange={(e) => setEditedProduct({ ...editedProduct, shortDescription: e.target.value })}
+                  className="w-full text-gray-600 text-sm sm:text-base lg:text-lg mt-3 sm:mt-4 px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                  rows={2}
+                />
+              ) : product.shortDescription ? (
+                <p className="text-gray-600 text-sm sm:text-base lg:text-lg mt-3 sm:mt-4">{product.shortDescription}</p>
+              ) : null
             )}
           </div>
 
@@ -135,21 +239,35 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
                   Giá sản phẩm
                 </h3>
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 sm:p-6 border border-green-200">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-bold text-green-700">
-                      {product.price.toLocaleString('vi-VN')}
-                    </span>
-                    <span className="text-base sm:text-lg text-green-600">đ</span>
-                  </div>
-                  {product.salePrice && product.salePrice < product.price && (
-                    <div className="mt-2">
-                      <span className="text-xs sm:text-sm text-gray-500 line-through">
-                        {product.salePrice.toLocaleString('vi-VN')}đ
-                      </span>
-                      <span className="ml-2 text-xs sm:text-sm text-red-600 font-semibold">
-                        Giảm {Math.round((1 - product.salePrice / product.price) * 100)}%
-                      </span>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-600">Giá gốc (VNĐ)</label>
+                      <input
+                        type="number"
+                        value={editedProduct.price}
+                        onChange={(e) => setEditedProduct({ ...editedProduct, price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-bold text-green-700">
+                          {product.price.toLocaleString('vi-VN')}
+                        </span>
+                        <span className="text-base sm:text-lg text-green-600">đ</span>
+                      </div>
+                      {product.salePrice && product.salePrice < product.price && (
+                        <div className="mt-2">
+                          <span className="text-xs sm:text-sm text-gray-500 line-through">
+                            {product.salePrice.toLocaleString('vi-VN')}đ
+                          </span>
+                          <span className="ml-2 text-xs sm:text-sm text-red-600 font-semibold">
+                            Giảm {Math.round((1 - product.salePrice / product.price) * 100)}%
+                          </span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -163,26 +281,41 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
                   Tồn kho
                 </h3>
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 sm:p-6 border border-blue-200">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-bold text-blue-700">
-                      {product.stockQuantity}
-                    </span>
-                    <span className="text-base sm:text-lg text-blue-600">sản phẩm</span>
-                  </div>
-                  {product.stockQuantity === 0 && (
-                    <span className="inline-block mt-2 text-xs sm:text-sm bg-red-100 text-red-700 px-2 sm:px-3 py-1 rounded-full font-medium">
-                      Hết hàng
-                    </span>
-                  )}
-                  {product.stockQuantity > 0 && product.stockQuantity <= 10 && (
-                    <span className="inline-block mt-2 text-xs sm:text-sm bg-yellow-100 text-yellow-700 px-2 sm:px-3 py-1 rounded-full font-medium">
-                      Sắp hết hàng
-                    </span>
-                  )}
-                  {product.stockQuantity > 10 && (
-                    <span className="inline-block mt-2 text-xs sm:text-sm bg-green-100 text-green-700 px-2 sm:px-3 py-1 rounded-full font-medium">
-                      Còn hàng
-                    </span>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-600">Số lượng tồn kho</label>
+                      <input
+                        type="number"
+                        value={editedProduct.stockQuantity}
+                        onChange={(e) => setEditedProduct({ ...editedProduct, stockQuantity: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        min="0"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-bold text-blue-700">
+                          {product.stockQuantity}
+                        </span>
+                        <span className="text-base sm:text-lg text-blue-600">sản phẩm</span>
+                      </div>
+                      {product.stockQuantity === 0 && (
+                        <span className="inline-block mt-2 text-xs sm:text-sm bg-red-100 text-red-700 px-2 sm:px-3 py-1 rounded-full font-medium">
+                          Hết hàng
+                        </span>
+                      )}
+                      {product.stockQuantity > 0 && product.stockQuantity <= 10 && (
+                        <span className="inline-block mt-2 text-xs sm:text-sm bg-yellow-100 text-yellow-700 px-2 sm:px-3 py-1 rounded-full font-medium">
+                          Sắp hết hàng
+                        </span>
+                      )}
+                      {product.stockQuantity > 10 && (
+                        <span className="inline-block mt-2 text-xs sm:text-sm bg-green-100 text-green-700 px-2 sm:px-3 py-1 rounded-full font-medium">
+                          Còn hàng
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -190,15 +323,26 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
           </div>
 
           {/* Description */}
-          {settings.showDescription && product.description && (
+          {settings.showDescription && (
             <div className="p-4 sm:p-6 lg:p-8 border-t border-gray-200">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
                 <Package size={18} className="sm:w-5 sm:h-5 text-purple-600" />
                 Mô tả sản phẩm
               </h3>
-              <div className="prose max-w-none text-gray-700">
-                <p className="whitespace-pre-wrap text-sm sm:text-base">{product.description}</p>
-              </div>
+              {isEditing ? (
+                <textarea
+                  value={editedProduct.description}
+                  onChange={(e) => setEditedProduct({ ...editedProduct, description: e.target.value })}
+                  className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none text-sm sm:text-base"
+                  rows={6}
+                />
+              ) : product.description ? (
+                <div className="prose max-w-none text-gray-700">
+                  <p className="whitespace-pre-wrap text-sm sm:text-base">{product.description}</p>
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">Chưa có mô tả</p>
+              )}
             </div>
           )}
 
@@ -284,10 +428,23 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
           {/* Footer Note */}
           <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
             <p className="text-center text-xs sm:text-sm text-gray-500">
-              🔒 Bạn đang xem sản phẩm này ở chế độ chỉ đọc thông qua link chia sẻ
+              {settings.permission === 'view' && '🔒 Bạn đang xem sản phẩm này ở chế độ chỉ đọc thông qua link chia sẻ'}
+              {settings.permission === 'comment' && '💬 Bạn có thể xem và thêm nhận xét cho sản phẩm này'}
+              {settings.permission === 'edit' && '✏️ Bạn có thể chỉnh sửa thông tin sản phẩm này'}
             </p>
           </div>
         </div>
+
+        {/* Comment Section - Show for comment and edit permissions */}
+        {(settings.permission === 'comment' || settings.permission === 'edit') && (
+          <div className="mt-6">
+            <CommentSection
+              productId={product.id}
+              shareToken={shareableLink.token}
+              readOnly={false}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

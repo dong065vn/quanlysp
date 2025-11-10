@@ -27,6 +27,7 @@ class ShareableLinkService {
     settings?: Partial<ShareableLinkSettings>
   ): ShareableLink {
     const defaultSettings: ShareableLinkSettings = {
+      permission: 'view', // Mặc định là chế độ chỉ xem
       allowProductLinks: true, // Mặc định cho phép click vào ProductLink
       showPrice: true,
       showStock: true,
