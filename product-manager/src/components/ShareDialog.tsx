@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { X, Copy, Check, ExternalLink, Eye, DollarSign, Box, FileText, Tag, Link as LinkIcon } from 'lucide-react';
-import type { Product, ShareableLink, ShareSettings } from '../types/product';
+import { X, Copy, Check, ExternalLink, Eye, DollarSign, Box, FileText, Tag, Link as LinkIcon, MessageSquare, Edit } from 'lucide-react';
+import type { Product, ShareableLink, ShareableLinkSettings, SharePermission } from '../types/product';
 import { shareableLinkService } from '../services/shareableLinkService';
 import { toast } from './Toast';
 
@@ -12,7 +12,8 @@ interface ShareDialogProps {
 
 export function ShareDialog({ isOpen, onClose, product }: ShareDialogProps) {
   const [copied, setCopied] = useState(false);
-  const [settings, setSettings] = useState<ShareSettings>({
+  const [settings, setSettings] = useState<ShareableLinkSettings>({
+    permission: 'view',
     allowProductLinks: true,
     showPrice: true,
     showStock: true,
@@ -76,6 +77,43 @@ export function ShareDialog({ isOpen, onClose, product }: ShareDialogProps) {
                 <h3 className="font-bold text-gray-900 text-lg mb-1 truncate">{product.name}</h3>
                 <p className="text-sm text-gray-600 font-mono">SKU: {product.sku}</p>
               </div>
+            </div>
+          </div>
+
+          {/* Permission Level */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <ExternalLink size={18} className="text-primary-600" />
+              Quyền truy cập
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <PermissionOption
+                icon={<Eye size={20} />}
+                label="Chỉ xem"
+                description="Người xem chỉ có thể đọc thông tin"
+                value="view"
+                selected={settings.permission === 'view'}
+                onSelect={() => setSettings({ ...settings, permission: 'view' })}
+                color="blue"
+              />
+              <PermissionOption
+                icon={<MessageSquare size={20} />}
+                label="Nhận xét"
+                description="Có thể xem và thêm nhận xét"
+                value="comment"
+                selected={settings.permission === 'comment'}
+                onSelect={() => setSettings({ ...settings, permission: 'comment' })}
+                color="green"
+              />
+              <PermissionOption
+                icon={<Edit size={20} />}
+                label="Chỉnh sửa"
+                description="Có thể chỉnh sửa thông tin sản phẩm"
+                value="edit"
+                selected={settings.permission === 'edit'}
+                onSelect={() => setSettings({ ...settings, permission: 'edit' })}
+                color="orange"
+              />
             </div>
           </div>
 
@@ -197,5 +235,67 @@ function ToggleOption({ icon, label, description, checked, onChange }: ToggleOpt
         </div>
       </div>
     </label>
+  );
+}
+
+interface PermissionOptionProps {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  value: SharePermission;
+  selected: boolean;
+  onSelect: () => void;
+  color: 'blue' | 'green' | 'orange';
+}
+
+function PermissionOption({ icon, label, description, selected, onSelect, color }: PermissionOptionProps) {
+  const colorClasses = {
+    blue: {
+      bg: 'from-blue-500 to-blue-600',
+      border: 'border-blue-500',
+      text: 'text-blue-600',
+      bgLight: 'from-blue-50 to-blue-100',
+      bgHover: 'hover:from-blue-100 hover:to-blue-200',
+    },
+    green: {
+      bg: 'from-green-500 to-green-600',
+      border: 'border-green-500',
+      text: 'text-green-600',
+      bgLight: 'from-green-50 to-green-100',
+      bgHover: 'hover:from-green-100 hover:to-green-200',
+    },
+    orange: {
+      bg: 'from-orange-500 to-orange-600',
+      border: 'border-orange-500',
+      text: 'text-orange-600',
+      bgLight: 'from-orange-50 to-orange-100',
+      bgHover: 'hover:from-orange-100 hover:to-orange-200',
+    },
+  };
+
+  const colors = colorClasses[color];
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+        selected
+          ? `${colors.border} bg-gradient-to-br ${colors.bgLight} shadow-md`
+          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 bg-gradient-to-br ${colors.bgLight} ${colors.text} ${colors.bgHover} transition-all duration-200`}>
+        {icon}
+      </div>
+      <div className="font-bold text-gray-900 mb-1">{label}</div>
+      <div className="text-xs text-gray-600">{description}</div>
+      {selected && (
+        <div className={`mt-3 flex items-center gap-2 text-sm font-semibold ${colors.text}`}>
+          <Check size={16} />
+          <span>Đã chọn</span>
+        </div>
+      )}
+    </button>
   );
 }

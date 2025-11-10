@@ -75,11 +75,25 @@ export interface ShareableLink {
   settings: ShareableLinkSettings;
 }
 
+export type SharePermission = 'view' | 'comment' | 'edit';
+
 export interface ShareableLinkSettings {
+  permission: SharePermission; // Quyền truy cập: view, comment, edit
   allowProductLinks: boolean; // Cho phép click vào ProductLink
   showPrice: boolean;
   showStock: boolean;
   showDescription: boolean;
   showImages: boolean;
   showTags: boolean;
+}
+
+export interface ProductComment {
+  id: string;
+  productId: string;
+  shareToken: string; // Token của link share để phân biệt người comment
+  author: string; // Tên người comment
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+  parentId?: string; // Cho phép reply comment
 }
