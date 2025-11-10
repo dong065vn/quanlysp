@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ExternalLink, Package, Tag, DollarSign, Box, ArrowLeft, Eye, MessageSquare, Edit as EditIcon, Save, X } from 'lucide-react';
+import { ExternalLink, Package, Tag, DollarSign, Box, ArrowLeft, Eye, MessageSquare, Edit as EditIcon, Save, X, Phone } from 'lucide-react';
 import type { Product, ShareableLink } from '../types/product';
 import { CommentSection } from './CommentSection';
+import { ContactModal } from './ContactButtons';
 import { storageService } from '../services/storage';
 import { toast } from './Toast';
 
@@ -15,6 +16,8 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
   const { settings } = shareableLink;
   const [isEditing, setIsEditing] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Product>(product);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const contactInfo = storageService.getContactInfo();
 
   const handleSaveEdit = () => {
     try {
@@ -425,6 +428,19 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
             </div>
           )}
 
+          {/* Contact Button - Only for view and comment modes */}
+          {(settings.permission === 'view' || settings.permission === 'comment') && (
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-primary-50 to-transparent border-t border-gray-200">
+              <button
+                onClick={() => setShowContactModal(true)}
+                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl font-bold text-lg hover:from-primary-700 hover:to-primary-800 shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95"
+              >
+                <Phone size={24} className="animate-pulse" />
+                <span>LIÊN HỆ</span>
+              </button>
+            </div>
+          )}
+
           {/* Footer Note */}
           <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
             <p className="text-center text-xs sm:text-sm text-gray-500">
@@ -446,6 +462,13 @@ export function ProductViewer({ product, shareableLink, onClose }: ProductViewer
           </div>
         )}
       </main>
+
+      {/* Contact Modal */}
+      <ContactModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        contactInfo={contactInfo}
+      />
     </div>
   );
 }

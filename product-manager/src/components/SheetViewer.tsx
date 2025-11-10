@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Eye, MessageSquare, Edit as EditIcon, Save, X, Table, Search, DollarSign, Box } from 'lucide-react';
 import type { Product, ShareableLink } from '../types/product';
 import { ProductModal } from './ProductModal';
+import { ProductInfoDialog } from './ProductInfoDialog';
 import { CommentSection } from './CommentSection';
 import { storageService } from '../services/storage';
 import { toast } from './Toast';
@@ -59,11 +60,10 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
   };
 
   const handleOpenModal = (product: Product) => {
+    setSelectedProduct(product);
     if (settings.permission === 'edit') {
-      setSelectedProduct(product);
       setIsEditing(true);
     } else {
-      setSelectedProduct(product);
       setIsEditing(false);
     }
   };
@@ -284,15 +284,23 @@ export function SheetViewer({ products, shareableLink, onClose }: SheetViewerPro
         </div>
       </main>
 
-      {/* Product Modal */}
+      {/* Product Modal/Dialog */}
       {selectedProduct && (
-        <ProductModal
-          isOpen={true}
-          onClose={() => setSelectedProduct(null)}
-          onSave={handleSaveModal}
-          product={selectedProduct}
-          mode={settings.permission === 'edit' ? 'edit' : 'view'}
-        />
+        settings.permission === 'edit' ? (
+          <ProductModal
+            isOpen={true}
+            onClose={() => setSelectedProduct(null)}
+            onSave={handleSaveModal}
+            product={selectedProduct}
+          />
+        ) : (
+          <ProductInfoDialog
+            isOpen={true}
+            onClose={() => setSelectedProduct(null)}
+            product={selectedProduct}
+            settings={settings}
+          />
+        )
       )}
     </div>
   );
