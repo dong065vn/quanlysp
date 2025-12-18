@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Lock, Eye, Edit3, Package, Phone, MessageCircle, Mail, MapPin, Clock, ExternalLink, ShoppingCart, Share2, Check } from 'lucide-react';
+import { ArrowLeft, Lock, Eye, Edit3, Package, Phone, MessageCircle, Mail, MapPin, Clock, ExternalLink, ShoppingCart, Share2, Check, AlertCircle } from 'lucide-react';
 import type { Product, ShareAccess, StoreContactInfo } from '../types/product';
 import { storageService } from '../services/storage';
 import { formatPrice } from '../utils/format';
@@ -16,6 +16,7 @@ export function SharedProductView({ shareId, onBack, userEmail }: SharedProductV
   const [access, setAccess] = useState<ShareAccess | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLocalStorageEmpty, setIsLocalStorageEmpty] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedProduct, setEditedProduct] = useState<Partial<Product>>({});
   const [selectedImage, setSelectedImage] = useState(0);
@@ -29,6 +30,15 @@ export function SharedProductView({ shareId, onBack, userEmail }: SharedProductV
   const loadSharedProduct = () => {
     setLoading(true);
     const products = storageService.getProducts();
+
+    // Check if localStorage is empty (different browser/device)
+    if (products.length === 0) {
+      setIsLocalStorageEmpty(true);
+      setError('Dữ liệu sản phẩm được lưu trên thiết bị của người tạo. Vui lòng mở link này trên thiết bị đã tạo sản phẩm.');
+      setLoading(false);
+      return;
+    }
+
     const found = products.find(p => p.shareSettings?.shareId === shareId);
 
     if (!found) {
@@ -112,10 +122,24 @@ export function SharedProductView({ shareId, onBack, userEmail }: SharedProductV
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Lock className="mx-auto text-gray-300 mb-4" size={64} />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Không thể truy cập</h2>
+        <div className="text-center max-w-md px-4">
+          {isLocalStorageEmpty ? (
+            <AlertCircle className="mx-auto text-amber-400 mb-4" size={64} />
+          ) : (
+            <Lock className="mx-auto text-gray-300 mb-4" size={64} />
+          )}
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            {isLocalStorageEmpty ? 'Không có dữ liệu' : 'Không thể truy cập'}
+          </h2>
           <p className="text-gray-600 mb-6">{error}</p>
+          {isLocalStorageEmpty && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm text-amber-800 font-medium mb-2">💡 Lưu ý:</p>
+              <p className="text-sm text-amber-700">
+                App này lưu dữ liệu trên localStorage của browser. Để share cho người khác xem được, bạn cần deploy app với database thực (Supabase, Firebase...).
+              </p>
+            </div>
+          )}
           <button
             onClick={onBack}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Lock, Eye, Edit3, Search, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Lock, Eye, Edit3, Search, ShoppingBag, AlertCircle } from 'lucide-react';
 import type { Product, StoreShareSettings, ShareAccess } from '../types/product';
 import { storageService } from '../services/storage';
 import { formatPrice } from '../utils/format';
@@ -17,6 +17,7 @@ export function SharedStoreView({ storeId, onBack, userEmail }: SharedStoreViewP
   const [access, setAccess] = useState<ShareAccess | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLocalStorageEmpty, setIsLocalStorageEmpty] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -33,6 +34,15 @@ export function SharedStoreView({ storeId, onBack, userEmail }: SharedStoreViewP
   const loadStore = () => {
     setLoading(true);
     const settings = storageService.getStoreShare();
+    const allProducts = storageService.getProducts();
+
+    // Check if this is a different browser/device (no local data)
+    if (!settings && allProducts.length === 0) {
+      setIsLocalStorageEmpty(true);
+      setError('Dữ liệu store được lưu trên thiết bị của người tạo. Vui lòng mở link này trên thiết bị đã tạo store, hoặc yêu cầu chủ store deploy lên server có database.');
+      setLoading(false);
+      return;
+    }
 
     if (!settings || settings.storeId !== storeId) {
       setError('Không tìm thấy store hoặc link đã hết hạn');
@@ -64,10 +74,9 @@ export function SharedStoreView({ storeId, onBack, userEmail }: SharedStoreViewP
 
     setStoreSettings(settings);
     setAccess(userAccess);
-    
+
     // Load products - only published and public/restricted for viewers
-    const allProducts = storageService.getProducts();
-    const visibleProducts = allProducts.filter(p => {
+    const visibleProducts = allProducts.filter((p) => {
       if (userAccess === 'admin' || userAccess === 'edit') return true;
       return p.status === 'published' && p.visibility !== 'hidden';
     });
@@ -106,10 +115,29 @@ export function SharedStoreView({ storeId, onBack, userEmail }: SharedStoreViewP
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <Lock className="mx-auto text-gray-300 mb-4" size={64} />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Không thể truy cập</h2>
+        <div className="text-center max-w-md px-4">
+          {isLocalStorageEmpty ? (
+            <AlertCircle className="mx-auto text-amber-400 mb-4" size={64} />
+          ) : (
+            <Lock className="mx-auto text-gray-300 mb-4" size={64} />
+          )}
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            {isLocalStorageEmpty ? 'Không có dữ liệu' : 'Không thể truy cập'}
+          </h2>
           <p className="text-gray-600 mb-6">{error}</p>
+          {isLocalStorageEmpty && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm text-amber-800 font-medium mb-2">💡 Lưu ý:</p>
+              <p className="text-sm text-amber-700">
+                App này lưu dữ liệu trên localStorage của browser. Để share cho người khác xem được, bạn cần:
+              </p>
+              <ul className="text-sm text-amber-700 mt-2 list-disc list-inside space-y-1">
+                <li>Mở link trên cùng browser đã tạo store</li>
+                <li>Hoặc sử dụng tính năng Share từng sản phẩm riêng lẻ</li>
+                <li>Hoặc deploy app với database thực (Supabase, Firebase...)</li>
+              </ul>
+            </div>
+          )}
           <button onClick={onBack} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
             Quay lại
           </button>
