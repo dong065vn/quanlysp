@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Search, Settings, Store, LayoutDashboard, Share2 } from 'lucide-react';
+import { Plus, Download, Upload, Search, Settings, Store, LayoutDashboard, Share2, Contact } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
 import { ShareModal } from './components/ShareModal';
 import { ShareStoreModal } from './components/ShareStoreModal';
+import { StoreContactSettings } from './components/StoreContactSettings';
 import { GoogleDriveConnect } from './components/GoogleDriveConnect';
 import { SyncStatusIndicator } from './components/SyncStatusIndicator';
 import { Storefront } from './pages/Storefront';
@@ -27,6 +28,7 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDriveSettings, setShowDriveSettings] = useState(false);
+  const [showContactSettings, setShowContactSettings] = useState(false);
   const [shareModalProduct, setShareModalProduct] = useState<Product | null>(null);
 
   // Check URL for share link on mount
@@ -262,6 +264,16 @@ function App() {
             {/* Sync Status Indicator */}
             <SyncStatusIndicator />
 
+            {/* Store Contact Settings */}
+            <button
+              onClick={() => setShowContactSettings(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm"
+              title="Cài đặt thông tin liên hệ"
+            >
+              <Contact size={16} />
+              Liên hệ
+            </button>
+
             {/* Share Store Button */}
             <button
               onClick={() => setShowShareStoreModal(true)}
@@ -420,6 +432,12 @@ function App() {
       <ShareStoreModal
         isOpen={showShareStoreModal}
         onClose={() => setShowShareStoreModal(false)}
+      />
+
+      {/* Store Contact Settings Modal */}
+      <StoreContactSettings
+        isOpen={showContactSettings}
+        onClose={() => setShowContactSettings(false)}
       />
     </div>
   );

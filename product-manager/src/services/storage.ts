@@ -1,4 +1,4 @@
-import type { Product, Category, StoreShareSettings } from '../types/product';
+import type { Product, Category, StoreShareSettings, StoreContactInfo } from '../types/product';
 import { googleAuthService } from './googleAuth';
 import { syncService } from './syncService';
 
@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   CATEGORIES: 'categories',
   DRIVE_SYNC_ENABLED: 'driveSyncEnabled',
   STORE_SHARE: 'storeShare',
+  STORE_CONTACT: 'storeContact',
 };
 
 class StorageService {
@@ -182,6 +183,32 @@ class StorageService {
     };
     this.saveStoreShare(settings);
     return settings;
+  }
+
+  // Store Contact Info
+  getStoreContact(): StoreContactInfo {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.STORE_CONTACT);
+      return data ? JSON.parse(data) : this.getDefaultStoreContact();
+    } catch {
+      return this.getDefaultStoreContact();
+    }
+  }
+
+  saveStoreContact(contact: StoreContactInfo): void {
+    localStorage.setItem(STORAGE_KEYS.STORE_CONTACT, JSON.stringify(contact));
+  }
+
+  private getDefaultStoreContact(): StoreContactInfo {
+    return {
+      storeName: 'Product Store',
+      phone: '',
+      zalo: '',
+      facebook: '',
+      email: '',
+      address: '',
+      workingHours: '8:00 - 22:00',
+    };
   }
 
   // Initialize with sample data

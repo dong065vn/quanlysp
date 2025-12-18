@@ -104,3 +104,15 @@ export interface ProductFormData {
   metaDescription?: string;
   tags: string[];
 }
+
+// Store contact info for shared product pages
+export interface StoreContactInfo {
+  storeName: string;
+  phone?: string;
+  zalo?: string;
+  facebook?: string;
+  email?: string;
+  address?: string;
+  workingHours?: string;
+  logo?: string;
+}
