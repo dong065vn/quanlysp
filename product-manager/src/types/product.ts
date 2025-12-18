@@ -1,5 +1,43 @@
 export type ProductStatus = 'published' | 'draft' | 'archived' | 'scheduled' | 'private';
 
+// Visibility control for storefront
+export type ProductVisibility = 'public' | 'hidden' | 'restricted';
+
+export interface AllowedViewer {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+// Share settings like Google Docs/Sheets
+export type ShareAccess = 'view' | 'edit' | 'admin';
+export type LinkShareAccess = 'off' | 'view' | 'edit';
+
+export interface SharedUser {
+  id: string;
+  email: string;
+  name?: string;
+  access: ShareAccess;
+  addedAt: string;
+}
+
+export interface ShareSettings {
+  linkAccess: LinkShareAccess; // Anyone with link
+  shareId: string; // Unique share ID for URL
+  sharedUsers: SharedUser[]; // Specific users
+  isPubliclyAccessible: boolean;
+}
+
+// Store-level share settings (share entire store like Google Sheets)
+export interface StoreShareSettings {
+  storeName: string;
+  storeId: string;
+  linkAccess: LinkShareAccess;
+  sharedUsers: SharedUser[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -29,6 +67,9 @@ export interface Product {
   salePrice?: number;
   stockQuantity: number;
   status: ProductStatus;
+  visibility: ProductVisibility;
+  allowedViewers?: AllowedViewer[];
+  shareSettings?: ShareSettings;
   publishDate?: string;
   metaTitle?: string;
   metaDescription?: string;

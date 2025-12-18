@@ -85,7 +85,8 @@ Bạn KHÔNG nên thấy file `.env` trong danh sách files to commit.
 
 Nếu thấy, chạy:
 ```bash
-git restore --staged product-manager/.env
+
+
 echo "product-manager/.env" >> .gitignore
 ```
 

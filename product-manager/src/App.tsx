@@ -1,14 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Search, Settings } from 'lucide-react';
+import { Plus, Download, Upload, Search, Settings, Store, LayoutDashboard, Share2 } from 'lucide-react';
 import { ProductTable } from './components/ProductTable';
 import { ProductModal } from './components/ProductModal';
+import { ShareModal } from './components/ShareModal';
+import { ShareStoreModal } from './components/ShareStoreModal';
 import { GoogleDriveConnect } from './components/GoogleDriveConnect';
 import { SyncStatusIndicator } from './components/SyncStatusIndicator';
-import type { Product } from './types/product';
+import { Storefront } from './pages/Storefront';
+import { SharedProductView } from './pages/SharedProductView';
+import { SharedStoreView } from './pages/SharedStoreView';
+import type { Product, ShareSettings } from './types/product';
 import { storageService } from './services/storage';
 import * as XLSX from 'xlsx';
 
+type ViewType = 'admin' | 'storefront' | 'shared' | 'sharedStore';
+
 function App() {
+  const [currentView, setCurrentView] = useState<ViewType>('admin');
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [storeShareId, setStoreShareId] = useState<string | null>(null);
+  const [showShareStoreModal, setShowShareStoreModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,6 +27,25 @@ function App() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDriveSettings, setShowDriveSettings] = useState(false);
+  const [shareModalProduct, setShareModalProduct] = useState<Product | null>(null);
+
+  // Check URL for share link on mount
+  useEffect(() => {
+    const path = window.location.pathname;
+    // Check for product share link
+    const productMatch = path.match(/\/share\/([a-z0-9]+)/i);
+    if (productMatch) {
+      setShareId(productMatch[1]);
+      setCurrentView('shared');
+      return;
+    }
+    // Check for store share link
+    const storeMatch = path.match(/\/store\/([a-z0-9]+)/i);
+    if (storeMatch) {
+      setStoreShareId(storeMatch[1]);
+      setCurrentView('sharedStore');
+    }
+  }, []);
 
   // Load products on mount
   useEffect(() => {
@@ -94,6 +124,17 @@ function App() {
     setIsModalOpen(true);
   };
 
+  const handleShareProduct = (product: Product) => {
+    setShareModalProduct(product);
+  };
+
+  const handleSaveShareSettings = (shareSettings: ShareSettings) => {
+    if (!shareModalProduct) return;
+    storageService.updateProduct(shareModalProduct.id, { shareSettings });
+    loadProducts();
+    setShareModalProduct(null);
+  };
+
   const handleNewProduct = () => {
     setEditingProduct(null);
     setIsModalOpen(true);
@@ -152,6 +193,53 @@ function App() {
     archived: products.filter(p => p.status === 'archived').length,
   };
 
+  // Show Shared Store view
+  if (currentView === 'sharedStore' && storeShareId) {
+    return (
+      <SharedStoreView
+        storeId={storeShareId}
+        onBack={() => {
+          setCurrentView('admin');
+          setStoreShareId(null);
+          window.history.pushState({}, '', '/');
+        }}
+        userEmail={localStorage.getItem('storefront_viewer_email') || undefined}
+      />
+    );
+  }
+
+  // Show Shared Product view
+  if (currentView === 'shared' && shareId) {
+    return (
+      <SharedProductView
+        shareId={shareId}
+        onBack={() => {
+          setCurrentView('admin');
+          setShareId(null);
+          window.history.pushState({}, '', '/');
+        }}
+        userEmail={localStorage.getItem('storefront_viewer_email') || undefined}
+      />
+    );
+  }
+
+  // Show Storefront view
+  if (currentView === 'storefront') {
+    return (
+      <div>
+        {/* Floating Admin Button */}
+        <button
+          onClick={() => setCurrentView('admin')}
+          className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-full shadow-lg hover:bg-gray-800 transition-colors"
+        >
+          <LayoutDashboard size={18} />
+          Admin
+        </button>
+        <Storefront />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header - Google Sheets Style */}
@@ -173,6 +261,26 @@ function App() {
           <div className="flex items-center gap-3">
             {/* Sync Status Indicator */}
             <SyncStatusIndicator />
+
+            {/* Share Store Button */}
+            <button
+              onClick={() => setShowShareStoreModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+              title="Chia sẻ Store"
+            >
+              <Share2 size={16} />
+              Share Store
+            </button>
+
+            {/* View Storefront Button */}
+            <button
+              onClick={() => setCurrentView('storefront')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+              title="Xem Storefront"
+            >
+              <Store size={16} />
+              Xem Store
+            </button>
 
             {/* Google Drive Settings Toggle */}
             <button
@@ -283,6 +391,7 @@ function App() {
           onEdit={handleEditProduct}
           onDelete={handleDeleteProduct}
           onView={handleViewProduct}
+          onShare={handleShareProduct}
         />
       </main>
 
@@ -295,6 +404,22 @@ function App() {
         }}
         onSave={handleSaveProduct}
         product={editingProduct}
+      />
+
+      {/* Share Modal */}
+      {shareModalProduct && (
+        <ShareModal
+          isOpen={true}
+          onClose={() => setShareModalProduct(null)}
+          product={shareModalProduct}
+          onSave={handleSaveShareSettings}
+        />
+      )}
+
+      {/* Share Store Modal */}
+      <ShareStoreModal
+        isOpen={showShareStoreModal}
+        onClose={() => setShowShareStoreModal(false)}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import type { Product, Category } from '../types/product';
+import type { Product, Category, StoreShareSettings } from '../types/product';
 import { googleAuthService } from './googleAuth';
 import { syncService } from './syncService';
 
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   PRODUCTS: 'products',
   CATEGORIES: 'categories',
   DRIVE_SYNC_ENABLED: 'driveSyncEnabled',
+  STORE_SHARE: 'storeShare',
 };
 
 class StorageService {
@@ -20,7 +21,14 @@ class StorageService {
   getProducts(): Product[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      
+      // Migrate old data: ensure visibility field exists
+      const products: Product[] = JSON.parse(data);
+      return products.map(p => ({
+        ...p,
+        visibility: p.visibility || 'public',
+      }));
     } catch (error) {
       console.error('Error loading products:', error);
       return [];
@@ -145,6 +153,37 @@ class StorageService {
     return this.autoSyncEnabled;
   }
 
+  // Store Share Settings
+  getStoreShare(): StoreShareSettings | null {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.STORE_SHARE);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  saveStoreShare(settings: StoreShareSettings): void {
+    localStorage.setItem(STORAGE_KEYS.STORE_SHARE, JSON.stringify({
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  createStoreShare(storeName: string): StoreShareSettings {
+    const storeId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const settings: StoreShareSettings = {
+      storeName,
+      storeId,
+      linkAccess: 'off',
+      sharedUsers: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.saveStoreShare(settings);
+    return settings;
+  }
+
   // Initialize with sample data
   initializeSampleData(): void {
     const existingProducts = this.getProducts();
@@ -163,6 +202,7 @@ class StorageService {
           salePrice: 28990000,
           stockQuantity: 45,
           status: 'published',
+          visibility: 'public',
           tags: ['iPhone', 'Apple', 'Premium'],
           images: [],
           links: [],
@@ -181,6 +221,7 @@ class StorageService {
           price: 27990000,
           stockQuantity: 32,
           status: 'published',
+          visibility: 'public',
           tags: ['Samsung', 'Android', 'Flagship'],
           images: [],
           links: [],
@@ -199,6 +240,7 @@ class StorageService {
           price: 45990000,
           stockQuantity: 8,
           status: 'draft',
+          visibility: 'hidden',
           tags: ['MacBook', 'Apple', 'M3'],
           images: [],
           links: [],
@@ -217,6 +259,8 @@ class StorageService {
           price: 5990000,
           stockQuantity: 125,
           status: 'published',
+          visibility: 'restricted',
+          allowedViewers: [{ id: '1', email: 'vip@example.com' }],
           tags: ['AirPods', 'Apple', 'Audio'],
           images: [],
           links: [],
@@ -235,6 +279,7 @@ class StorageService {
           price: 16990000,
           stockQuantity: 0,
           status: 'archived',
+          visibility: 'public',
           tags: ['iPad', 'Apple', 'M2'],
           images: [],
           links: [],

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, ExternalLink } from 'lucide-react';
-import type { Product, ProductStatus, ProductFormData, ProductLink } from '../types/product';
+import type { Product, ProductStatus, ProductFormData, ProductLink, ProductVisibility, AllowedViewer } from '../types/product';
 import { storageService } from '../services/storage';
 
 interface ProductModalProps {
@@ -26,6 +26,10 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
     tags: [],
   });
 
+  const [visibility, setVisibility] = useState<ProductVisibility>('public');
+  const [allowedViewers, setAllowedViewers] = useState<AllowedViewer[]>([]);
+  const [newViewerEmail, setNewViewerEmail] = useState('');
+
   const [links, setLinks] = useState<ProductLink[]>([]);
   const [newLink, setNewLink] = useState({
     type: 'marketplace' as ProductLink['type'],
@@ -50,6 +54,8 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
         metaDescription: product.metaDescription,
       });
       setLinks(product.links || []);
+      setVisibility(product.visibility || 'public');
+      setAllowedViewers(product.allowedViewers || []);
     } else {
       setFormData({
         sku: '',
@@ -64,6 +70,8 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
         tags: [],
       });
       setLinks([]);
+      setVisibility('public');
+      setAllowedViewers([]);
     }
   }, [product]);
 
@@ -93,6 +101,23 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
     setLinks(links.filter(l => l.id !== linkId));
   };
 
+  const handleAddViewer = () => {
+    if (!newViewerEmail || !newViewerEmail.includes('@')) {
+      alert('Vui lòng nhập email hợp lệ');
+      return;
+    }
+    if (allowedViewers.some(v => v.email === newViewerEmail)) {
+      alert('Email này đã được thêm');
+      return;
+    }
+    setAllowedViewers([...allowedViewers, { id: Date.now().toString(), email: newViewerEmail }]);
+    setNewViewerEmail('');
+  };
+
+  const handleRemoveViewer = (viewerId: string) => {
+    setAllowedViewers(allowedViewers.filter(v => v.id !== viewerId));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -103,6 +128,8 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
       ...formData,
       slug: formData.name.toLowerCase().replace(/\s+/g, '-'),
       categoryName: category?.name,
+      visibility,
+      allowedViewers: visibility === 'restricted' ? allowedViewers : [],
       images: product?.images || [],
       links: links,
       createdAt: product?.createdAt || new Date().toISOString(),
@@ -252,23 +279,84 @@ export function ProductModal({ isOpen, onClose, onSave, product }: ProductModalP
               </div>
             </div>
 
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Trạng thái
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as ProductStatus })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="draft">Nháp</option>
-                <option value="published">Đã public</option>
-                <option value="archived">Đã lưu trữ</option>
-                <option value="scheduled">Đã lên lịch</option>
-                <option value="private">Riêng tư</option>
-              </select>
+            {/* Status & Visibility */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Trạng thái
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as ProductStatus })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="draft">Nháp</option>
+                  <option value="published">Đã public</option>
+                  <option value="archived">Đã lưu trữ</option>
+                  <option value="scheduled">Đã lên lịch</option>
+                  <option value="private">Riêng tư</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hiển thị trên Storefront
+                </label>
+                <select
+                  value={visibility}
+                  onChange={(e) => setVisibility(e.target.value as ProductVisibility)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="public">🌐 Công khai</option>
+                  <option value="hidden">🙈 Ẩn</option>
+                  <option value="restricted">🔒 Chỉ người được chọn</option>
+                </select>
+              </div>
             </div>
+
+            {/* Allowed Viewers (only show when restricted) */}
+            {visibility === 'restricted' && (
+              <div className="border border-amber-200 rounded-md p-3 bg-amber-50">
+                <label className="block text-sm font-medium text-amber-800 mb-2">
+                  🔒 Người được phép xem (nhập email)
+                </label>
+                {allowedViewers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {allowedViewers.map((viewer) => (
+                      <span
+                        key={viewer.id}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-amber-300 rounded-full text-sm"
+                      >
+                        {viewer.email}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveViewer(viewer.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="email@example.com"
+                    value={newViewerEmail}
+                    onChange={(e) => setNewViewerEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddViewer())}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddViewer}
+                    className="px-3 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors text-sm"
+                  >
+                    Thêm
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Tags */}
             <div>

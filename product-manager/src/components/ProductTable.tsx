@@ -9,14 +9,15 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Package, ExternalLink } from 'lucide-react';
-import type { Product, ProductStatus } from '../types/product';
+import { Eye, Pencil, Trash2, Package, ExternalLink, Globe, EyeOff, Lock, Share2 } from 'lucide-react';
+import type { Product, ProductStatus, ProductVisibility } from '../types/product';
 
 interface ProductTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
   onView: (product: Product) => void;
+  onShare?: (product: Product) => void;
 }
 
 const columnHelper = createColumnHelper<Product>();
@@ -65,7 +66,43 @@ function StatusBadge({ status }: { status: ProductStatus }) {
   );
 }
 
-export function ProductTable({ products, onEdit, onDelete, onView }: ProductTableProps) {
+function VisibilityBadge({ visibility, viewerCount }: { visibility: ProductVisibility; viewerCount?: number }) {
+  const config = {
+    public: {
+      icon: Globe,
+      bg: 'bg-green-50',
+      text: 'text-green-700',
+      label: 'Công khai',
+    },
+    hidden: {
+      icon: EyeOff,
+      bg: 'bg-gray-100',
+      text: 'text-gray-600',
+      label: 'Ẩn',
+    },
+    restricted: {
+      icon: Lock,
+      bg: 'bg-amber-50',
+      text: 'text-amber-700',
+      label: 'Giới hạn',
+    },
+  };
+
+  const style = config[visibility] || config.public;
+  const Icon = style.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${style.bg} ${style.text}`}>
+      <Icon size={12} />
+      {style.label}
+      {visibility === 'restricted' && viewerCount !== undefined && (
+        <span className="ml-1 bg-amber-200 px-1 rounded">{viewerCount}</span>
+      )}
+    </span>
+  );
+}
+
+export function ProductTable({ products, onEdit, onDelete, onView, onShare }: ProductTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
@@ -140,7 +177,17 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
       columnHelper.accessor('status', {
         header: 'Trạng thái',
         cell: (info) => <StatusBadge status={info.getValue()} />,
-        size: 140,
+        size: 120,
+      }),
+      columnHelper.accessor('visibility', {
+        header: 'Hiển thị',
+        cell: (info) => (
+          <VisibilityBadge 
+            visibility={info.getValue() || 'public'} 
+            viewerCount={info.row.original.allowedViewers?.length}
+          />
+        ),
+        size: 100,
       }),
       columnHelper.accessor('links', {
         header: 'Links',
@@ -185,34 +232,43 @@ export function ProductTable({ products, onEdit, onDelete, onView }: ProductTabl
         id: 'actions',
         header: 'Thao tác',
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               onClick={() => onView(row.original)}
-              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
               title="Xem"
             >
-              <Eye size={16} className="text-gray-600" />
+              <Eye size={15} className="text-gray-600" />
             </button>
             <button
               onClick={() => onEdit(row.original)}
-              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
               title="Sửa"
             >
-              <Pencil size={16} className="text-gray-600" />
+              <Pencil size={15} className="text-gray-600" />
             </button>
+            {onShare && (
+              <button
+                onClick={() => onShare(row.original)}
+                className="p-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                title="Chia sẻ"
+              >
+                <Share2 size={15} className="text-blue-600" />
+              </button>
+            )}
             <button
               onClick={() => onDelete(row.original.id)}
-              className="p-2 hover:bg-red-50 rounded-md transition-colors"
+              className="p-1.5 hover:bg-red-50 rounded-md transition-colors"
               title="Xóa"
             >
-              <Trash2 size={16} className="text-red-600" />
+              <Trash2 size={15} className="text-red-600" />
             </button>
           </div>
         ),
-        size: 120,
+        size: 140,
       }),
     ],
-    [onEdit, onDelete, onView]
+    [onEdit, onDelete, onView, onShare]
   );
 
   const table = useReactTable({
